@@ -1,0 +1,36 @@
+{
+  "world_boss": [
+    {
+      "timestamp": 1710000000,
+      "boss": "Ashava",
+      "startTime": "2024-03-09T12:00:00Z",
+      "zone": [{"name": "Scosglen"}]
+    },
+    {
+      "timestamp": 1710012600,
+      "boss": "Wandering Death",
+      "startTime": "2024-03-09T15:30:00Z",
+      "zone": [{"name": "Dry Steppes"}]
+    }
+  ],
+  "helltide": [
+    {
+      "timestamp": 1710001800,
+      "startTime": "2024-03-09T12:30:00Z"
+    },
+    {
+      "timestamp": 1710005400,
+      "startTime": "2024-03-09T13:30:00Z"
+    }
+  ],
+  "legion": [
+    {
+      "timestamp": 1710000900,
+      "startTime": "2024-03-09T12:15:00Z"
+    },
+    {
+      "timestamp": 1710002400,
+      "startTime": "2024-03-09T12:40:00Z"
+    }
+  ]
+}

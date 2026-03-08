@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "d4-timer"
+version = "0.1.0"
+description = "Diablo 4 event tracker system tray app for Windows 11"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "pystray>=0.19",
+    "Pillow>=10.0",
+    "pygame-ce>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "flake8",
+    "mypy==1.11.2",
+]
+
+[project.scripts]
+d4-timer = "d4_timer.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["d4_timer*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.coverage.run]
+source = ["d4_timer"]
+omit = ["d4_timer/ui/*", "d4_timer/tray.py", "d4_timer/controller.py", "d4_timer/__main__.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
