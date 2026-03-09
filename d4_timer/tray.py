@@ -42,6 +42,7 @@ def create_tray_icon(
     on_test_alert: Callable,
     on_toggle_event: Callable[[str], None],
     is_event_enabled: Callable[[str], bool],
+    is_muted: Callable[[], bool],
 ) -> Any:
     """Create and return a pystray Icon (not yet run)."""
     import pystray
@@ -59,7 +60,7 @@ def create_tray_icon(
 
     menu = pystray.Menu(
         pystray.MenuItem("Open", on_click, default=True),
-        pystray.MenuItem("Toggle Mute", on_toggle_mute),
+        pystray.MenuItem("Mute", on_toggle_mute, checked=lambda item: is_muted()),
         pystray.MenuItem("Settings", on_settings),
         pystray.MenuItem("Test Alert", on_test_alert),
         pystray.Menu.SEPARATOR,

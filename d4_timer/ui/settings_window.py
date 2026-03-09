@@ -153,8 +153,14 @@ class SettingsWindow:
         )
         ttk.Checkbutton(frame, variable=auto_dismiss_var).grid(row=sep_row + 4, column=2, padx=4)
 
+        suppress_var = tk.BooleanVar(value=self._settings.suppress_when_not_gaming)
+        ttk.Label(frame, text="Only alert while Diablo IV is running").grid(
+            row=sep_row + 5, column=0, sticky="w", padx=4, pady=3
+        )
+        ttk.Checkbutton(frame, variable=suppress_var).grid(row=sep_row + 5, column=2, padx=4)
+
         btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=sep_row + 5, column=0, columnspan=3, pady=(12, 0))
+        btn_frame.grid(row=sep_row + 6, column=0, columnspan=3, pady=(12, 0))
 
         def _save() -> None:
             new_alert = {}
@@ -187,6 +193,7 @@ class SettingsWindow:
                 settings_y=self._settings.settings_y,
                 alert_auto_dismiss=auto_dismiss_var.get(),
                 alert_frequency_hz=freq_hz,
+                suppress_when_not_gaming=suppress_var.get(),
             )
             self._save_pos()
             self._on_save(new_settings)

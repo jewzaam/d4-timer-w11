@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 import threading
 import time
 from typing import Any
@@ -11,12 +12,14 @@ from typing import Any
 from .api import EventData, Schedule, fetch_schedule, parse_schedule
 from .audio import generate_alert_sound, play_alert
 from .config import (
+    ALL_EVENT_TYPES,
     API_BACKOFF_MAX_SECONDS,
     API_POLL_INTERVAL_SECONDS,
-    ALL_EVENT_TYPES,
+    DIABLO_PROCESS_NAME,
     EVENT_DISPLAY_NAMES,
     EVENT_HELLTIDE,
     EVENT_WORLD_BOSS,
+    PROCESS_CHECK_INTERVAL_SECONDS,
     TICK_INTERVAL_MS,
 )
 from .scheduler import AlertScheduler
@@ -27,6 +30,20 @@ from .ui.main_window import MainWindow
 from .ui.settings_window import SettingsWindow
 
 log = logging.getLogger(__name__)
+
+
+def _is_process_running(name: str) -> bool:
+    """Return True if a process with the given image name is currently running."""
+    try:
+        out = subprocess.run(
+            ["tasklist", "/FI", f"IMAGENAME eq {name}", "/NH"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        ).stdout
+        return name.lower() in out.lower()
+    except Exception:
+        return False
 
 
 class AppController:
@@ -53,6 +70,10 @@ class AppController:
         self._main_window = MainWindow(self._root, self, self._settings)
         self._tray_icon: Any = None
         self._settings_window: SettingsWindow | None = None
+
+        # Process detection state
+        self._game_running: bool = False
+        self._last_process_check: float = 0.0
 
     # ------------------------------------------------------------------
     # Public API (called from UI or tray)
@@ -125,6 +146,12 @@ class AppController:
     def is_event_enabled(self, event_type: str) -> bool:
         return self._settings.is_enabled(event_type)
 
+    def is_muted(self) -> bool:
+        return self._settings.mute_all
+
+    def is_game_suppressed(self) -> bool:
+        return self._settings.suppress_when_not_gaming and not self._game_running
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -144,6 +171,7 @@ class AppController:
             on_test_alert=lambda icon, item: self._root.after(0, self.test_alert),
             on_toggle_event=_schedule_toggle,
             is_event_enabled=self.is_event_enabled,
+            is_muted=self.is_muted,
         )
 
         poll_thread = threading.Thread(target=self._poll_loop, daemon=True, name="api-poll")
@@ -195,23 +223,42 @@ class AppController:
 
         self._main_window.update_countdowns(countdowns, label_updates if label_updates else None)
 
-        # Check alerts
+        # Process detection — throttled, only when suppression is enabled
+        if self._settings.suppress_when_not_gaming:
+            if now - self._last_process_check >= PROCESS_CHECK_INTERVAL_SECONDS:
+                prev = self._game_running
+                self._game_running = _is_process_running(DIABLO_PROCESS_NAME)
+                self._last_process_check = now
+                if self._game_running != prev:
+                    log.info(
+                        "Game process %s: %s",
+                        DIABLO_PROCESS_NAME,
+                        "is running" if self._game_running else "not running",
+                    )
+                    self._update_tray_icon()
+
+        game_suppressed = self._settings.suppress_when_not_gaming and not self._game_running
+        self._main_window.update_status(self._settings.mute_all, game_suppressed)
+
+        # Check alerts — skip entirely when suppressed so events aren't marked fired
         if not self._settings.mute_all:
-            alerts = self._scheduler.check_alerts(schedule, self._settings)
-            for event in alerts:
-                log.debug(
-                    "Dispatching alert: %s | alert_minutes=%s | enabled=%s"
-                    " | mute_all=%s | freq_hz=%d",
-                    event.event_type,
-                    self._settings.alert_minutes,
-                    self._settings.enabled,
-                    self._settings.mute_all,
-                    self._settings.alert_frequency_hz,
-                )
-                if not self._quiet:
-                    play_alert(self._settings.alert_frequency_hz)
-                AlertWindow(self._root, event, self._settings, self._save_alert_pos).show()
-                log.info("Alert fired for %s at %s", event.event_type, event.timestamp)
+            game_suppressed = self._settings.suppress_when_not_gaming and not self._game_running
+            if not game_suppressed:
+                alerts = self._scheduler.check_alerts(schedule, self._settings)
+                for event in alerts:
+                    log.debug(
+                        "Dispatching alert: %s | alert_minutes=%s | enabled=%s"
+                        " | mute_all=%s | freq_hz=%d",
+                        event.event_type,
+                        self._settings.alert_minutes,
+                        self._settings.enabled,
+                        self._settings.mute_all,
+                        self._settings.alert_frequency_hz,
+                    )
+                    if not self._quiet:
+                        play_alert(self._settings.alert_frequency_hz)
+                    AlertWindow(self._root, event, self._settings, self._save_alert_pos).show()
+                    log.info("Alert fired for %s at %s", event.event_type, event.timestamp)
 
         self._root.after(TICK_INTERVAL_MS, self._tick)
 
@@ -250,6 +297,8 @@ class AppController:
     def _update_tray_icon(self) -> None:
         if self._tray_icon:
             try:
-                self._tray_icon.icon = generate_icon_image(muted=self._settings.mute_all)
+                self._tray_icon.icon = generate_icon_image(
+                    muted=self._settings.mute_all or self.is_game_suppressed()
+                )
             except Exception:
                 pass

@@ -48,6 +48,7 @@ class Settings:
     settings_y: int | None = None
     alert_auto_dismiss: bool = False
     alert_frequency_hz: int = DEFAULT_ALERT_FREQUENCY_HZ
+    suppress_when_not_gaming: bool = False
 
     def get_alert_minutes(self, event_type: str) -> int:
         return self.alert_minutes.get(event_type, DEFAULT_ALERT_MINUTES.get(event_type, 5))
@@ -114,6 +115,7 @@ def load_settings(path: Path | None = None) -> Settings:
     settings_y = int(raw_sy) if isinstance(raw_sy, (int, float)) else None
 
     alert_auto_dismiss = bool(data.get("alert_auto_dismiss", False))
+    suppress_when_not_gaming = bool(data.get("suppress_when_not_gaming", False))
 
     raw_freq = data.get("alert_frequency_hz", DEFAULT_ALERT_FREQUENCY_HZ)
     alert_frequency_hz = (
@@ -137,6 +139,7 @@ def load_settings(path: Path | None = None) -> Settings:
         settings_y=settings_y,
         alert_auto_dismiss=alert_auto_dismiss,
         alert_frequency_hz=alert_frequency_hz,
+        suppress_when_not_gaming=suppress_when_not_gaming,
     )
 
 
@@ -159,6 +162,7 @@ def save_settings(settings: Settings, path: Path | None = None) -> None:
         "settings_y": settings.settings_y,
         "alert_auto_dismiss": settings.alert_auto_dismiss,
         "alert_frequency_hz": settings.alert_frequency_hz,
+        "suppress_when_not_gaming": settings.suppress_when_not_gaming,
     }
 
     tmp = target.with_suffix(".tmp")

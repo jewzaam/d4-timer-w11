@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 from ..config import (
     ALL_EVENT_TYPES,
     EVENT_DISPLAY_NAMES,
+    WINDOW_BORDER_NORMAL,
+    WINDOW_BORDER_SUPPRESSED,
 )
 from ..settings import Settings, save_settings
 
@@ -59,10 +61,9 @@ class MainWindow:
             var.set(text)
 
     def apply_bg(self, color: str) -> None:
-        """Live-recolor window background without rebuild."""
+        """Live-recolor content background without rebuild."""
         self._bg = color
         if self._window and self._window.winfo_exists():
-            self._window.configure(bg=color)  # type: ignore[call-arg]
             for w in self._bg_widgets:
                 try:
                     w.configure(bg=color)  # type: ignore[call-arg]
@@ -84,6 +85,13 @@ class MainWindow:
         self._window.update_idletasks()
         self._window.resizable(False, False)
 
+    def update_status(self, muted: bool, game_suppressed: bool) -> None:
+        """Update the window border color to reflect mute/suppression state."""
+        if not (self._window and self._window.winfo_exists()):
+            return
+        border = WINDOW_BORDER_SUPPRESSED if (muted or game_suppressed) else WINDOW_BORDER_NORMAL
+        self._window.configure(bg=border)  # type: ignore[call-arg]
+
     def _show_context_menu(self, event: tk.Event) -> None:  # type: ignore[type-arg]
         if not (self._window and self._window.winfo_exists()):
             return
@@ -95,8 +103,17 @@ class MainWindow:
             activebackground="#444444",
             activeforeground="#ffffff",
         )
-        mute_label = "Unmute" if self._controller._settings.mute_all else "Mute"
-        menu.add_command(label=mute_label, command=self._controller.toggle_mute)
+        game_suppressed = self._controller.is_game_suppressed()
+        muted = self._controller.is_muted()
+        mute_var = tk.BooleanVar(value=muted or game_suppressed)
+        menu.add_checkbutton(
+            label="Mute",
+            variable=mute_var,
+            command=self._controller.toggle_mute,
+            state=tk.DISABLED if game_suppressed else tk.NORMAL,
+        )
+        if game_suppressed:
+            menu.add_command(label="  (game not running)", state=tk.DISABLED)
         menu.add_command(label="Settings…", command=self._controller.open_settings)
         menu.add_command(label="Test Alert", command=self._controller.test_alert)
         menu.add_separator()
@@ -121,13 +138,13 @@ class MainWindow:
         win = tk.Toplevel(self._root)
         win.overrideredirect(True)
         win.wm_attributes("-topmost", True)
-        win.configure(bg=self._bg)
+        win.configure(bg=WINDOW_BORDER_NORMAL)
 
         if self._settings.window_x is not None and self._settings.window_y is not None:
             win.geometry(f"+{self._settings.window_x}+{self._settings.window_y}")
 
         frame = tk.Frame(win, bg=self._bg, padx=4, pady=4)
-        frame.pack(fill=tk.BOTH, expand=True)
+        frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
 
         _drag: list[int] = [0, 0]
 
