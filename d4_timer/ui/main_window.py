@@ -26,6 +26,7 @@ class MainWindow:
         self._controller = controller
         self._settings = settings
         self._window: tk.Toplevel | None = None
+        self._border_frame: tk.Frame | None = None
         self._countdown_vars: dict[str, tk.StringVar] = {}
         self._label_vars: dict[str, tk.StringVar] = {}
         self._row_widgets: dict[str, list[tk.Widget]] = {}
@@ -86,11 +87,11 @@ class MainWindow:
         self._window.resizable(False, False)
 
     def update_status(self, muted: bool, game_suppressed: bool) -> None:
-        """Update the window border color to reflect mute/suppression state."""
-        if not (self._window and self._window.winfo_exists()):
+        """Update the border frame color to reflect mute/suppression state."""
+        if not (self._border_frame and self._window and self._window.winfo_exists()):
             return
         border = WINDOW_BORDER_SUPPRESSED if (muted or game_suppressed) else WINDOW_BORDER_NORMAL
-        self._window.configure(bg=border)  # type: ignore[call-arg]
+        self._border_frame.configure(bg=border)  # type: ignore[call-arg]
 
     def _show_context_menu(self, event: tk.Event) -> None:  # type: ignore[type-arg]
         if not (self._window and self._window.winfo_exists()):
@@ -138,12 +139,15 @@ class MainWindow:
         win = tk.Toplevel(self._root)
         win.overrideredirect(True)
         win.wm_attributes("-topmost", True)
-        win.configure(bg=WINDOW_BORDER_NORMAL)
 
         if self._settings.window_x is not None and self._settings.window_y is not None:
             win.geometry(f"+{self._settings.window_x}+{self._settings.window_y}")
 
-        frame = tk.Frame(win, bg=self._bg, padx=4, pady=4)
+        border_frame = tk.Frame(win, bg=WINDOW_BORDER_NORMAL)
+        border_frame.pack(fill=tk.BOTH, expand=True)
+        self._border_frame = border_frame
+
+        frame = tk.Frame(border_frame, bg=self._bg, padx=4, pady=4)
         frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
 
         _drag: list[int] = [0, 0]
@@ -197,7 +201,7 @@ class MainWindow:
                 name_lbl.grid_remove()
                 count_lbl.grid_remove()
 
-        for widget in [frame, *self._bg_widgets]:
+        for widget in [border_frame, frame, *self._bg_widgets]:
             widget.bind("<Button-1>", _start_drag)
             widget.bind("<B1-Motion>", _do_drag)
             widget.bind("<Button-3>", self._show_context_menu)
