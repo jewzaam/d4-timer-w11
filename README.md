@@ -28,12 +28,26 @@ python3 -m d4_timer --quiet
 
 ## Features
 
-- **System tray icon** — crimson circle (gray when muted); left-click opens the countdown window
-- **Countdown window** — shows time remaining for next World Boss, Helltide, and Legion event
-- **Alerts** — configurable lead time per event type; audio + auto-dismissing popup
-- **Mute all** — silences audio; icon turns gray
-- **Settings** — per-event alert lead time and enable/disable toggle
-- **Persistence** — settings saved to `%APPDATA%\d4-timer\settings.json`
+- **System tray icon** — crimson circle (gray when muted); left-click or double-click opens the countdown window
+- **Countdown window** — borderless, always-on-top; shows time remaining for each event; drag to reposition; right-click for context menu; Helltide shows active/countdown state
+- **Alerts** — configurable lead time per event type (1–240 min); audio beep + dismissable popup
+- **Mute** — tray and context menu checkmark item; icon turns gray; status shown in countdown window
+- **Game detection** — optional suppression of alerts when Diablo IV is not running (Settings → "Only alert while Diablo IV is running"); shows "GAME NOT RUNNING" status in countdown window when suppressed
+- **Settings** — per-event alert lead time, enabled toggle, window/alert background color, alert tone frequency (100–8000 Hz) with live test button, auto-dismiss, game detection toggle
+- **Persistence** — window positions, colors, and all settings saved to `%APPDATA%\d4-timer\settings.json`
+- **License** — GPL-3.0-or-later
+
+## System Startup (optional)
+
+To launch on login with no console window, create a Task Scheduler entry:
+
+1. Open **Task Scheduler** → **Create Task**
+2. **General** tab: check "Run only when user is logged on"
+3. **Triggers** tab: New → "At log on"
+4. **Actions** tab: New → Start a program
+   - Program: `C:\Users\<you>\AppData\Local\Python\pythoncore-3.14-64\pythonw.exe`
+   - Arguments: `-m d4_timer`
+   - Start in: path to the project directory
 
 ## Development
 

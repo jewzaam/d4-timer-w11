@@ -55,11 +55,19 @@ DEFAULT_ALERT_BG = "#2d0000"
 # Helltide is active for 55 minutes after its start timestamp
 HELLTIDE_DURATION_SECONDS = 55 * 60
 
+# Diablo IV process detection
+DIABLO_PROCESS_NAME = "Diablo IV.exe"
+PROCESS_CHECK_INTERVAL_SECONDS = 15
+
 # Tray icon
 TRAY_ICON_NAME = "D4 Timer"
 TRAY_ICON_SIZE = (64, 64)
 TRAY_ICON_COLOR_ACTIVE = "#30FF06"
 TRAY_ICON_COLOR_MUTED = "#555555"
+
+# Window border colors — matches tray icon muted color when suppressed
+WINDOW_BORDER_NORMAL = "#333333"
+WINDOW_BORDER_SUPPRESSED = TRAY_ICON_COLOR_MUTED
 
 # Audio
 AUDIO_SAMPLE_RATE = 44100

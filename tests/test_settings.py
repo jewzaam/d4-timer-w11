@@ -187,6 +187,17 @@ class TestSettingsWindowFields:
         loaded = load_settings(p)
         assert loaded.alert_frequency_hz == 100
 
+    def test_suppress_when_not_gaming_default_false(self):
+        s = Settings()
+        assert s.suppress_when_not_gaming is False
+
+    def test_saves_and_loads_suppress_when_not_gaming(self, tmp_path):
+        p = tmp_path / "settings.json"
+        s = Settings(suppress_when_not_gaming=True)
+        save_settings(s, p)
+        loaded = load_settings(p)
+        assert loaded.suppress_when_not_gaming is True
+
 
 class TestSettingsHelpers:
     def test_get_alert_minutes_present(self):
