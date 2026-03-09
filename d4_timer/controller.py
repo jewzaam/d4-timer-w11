@@ -71,8 +71,8 @@ class AppController:
         self._tray_icon: Any = None
         self._settings_window: SettingsWindow | None = None
 
-        # Process detection state
-        self._game_running: bool = False
+        # Process detection state — None until first check so first result always triggers update
+        self._game_running: bool | None = None
         self._last_process_check: float = 0.0
 
     # ------------------------------------------------------------------
@@ -173,6 +173,7 @@ class AppController:
             is_event_enabled=self.is_event_enabled,
             is_muted=self.is_muted,
         )
+        self._update_tray_icon()  # apply correct initial color before tray thread starts
 
         poll_thread = threading.Thread(target=self._poll_loop, daemon=True, name="api-poll")
         poll_thread.start()
