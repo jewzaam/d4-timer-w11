@@ -17,14 +17,18 @@ def reset_audio_cache():
     reset_cache()
 
 
+def _make_mock_pygame(sound: MagicMock | None = None) -> MagicMock:
+    """Return a mock pygame with mixer.get_init() → (44100, -16, 2) and Sound()."""
+    mock_pygame = MagicMock()
+    mock_pygame.mixer.get_init.return_value = (44100, -16, 2)
+    mock_pygame.mixer.Sound.return_value = sound or MagicMock()
+    return mock_pygame
+
+
 class TestGenerateAlertSound:
     def test_returns_sound_object_on_success(self):
-        mock_pygame = MagicMock()
-        mock_sndarray = MagicMock()
         mock_sound = MagicMock()
-        mock_sndarray.make_sound.return_value = mock_sound
-        mock_pygame.sndarray = mock_sndarray
-        mock_pygame.mixer = MagicMock()
+        mock_pygame = _make_mock_pygame(mock_sound)
 
         with patch.dict("sys.modules", {"pygame": mock_pygame, "pygame.mixer": mock_pygame.mixer}):
             audio_module._initialized = True
@@ -33,10 +37,8 @@ class TestGenerateAlertSound:
         assert result is mock_sound
 
     def test_caches_sound_on_second_call(self):
-        mock_pygame = MagicMock()
         mock_sound = MagicMock()
-        mock_pygame.sndarray.make_sound.return_value = mock_sound
-        mock_pygame.mixer = MagicMock()
+        mock_pygame = _make_mock_pygame(mock_sound)
 
         with patch.dict("sys.modules", {"pygame": mock_pygame, "pygame.mixer": mock_pygame.mixer}):
             audio_module._initialized = True
@@ -44,8 +46,8 @@ class TestGenerateAlertSound:
             second = generate_alert_sound()
 
         assert first is second
-        # make_sound called only once
-        assert mock_pygame.sndarray.make_sound.call_count == 1
+        # Sound() constructed only once
+        assert mock_pygame.mixer.Sound.call_count == 1
 
     def test_returns_none_when_init_fails(self):
         with patch.object(audio_module, "_init_pygame", return_value=False):
@@ -53,9 +55,8 @@ class TestGenerateAlertSound:
         assert result is None
 
     def test_returns_none_when_make_sound_raises(self):
-        mock_pygame = MagicMock()
-        mock_pygame.sndarray.make_sound.side_effect = Exception("boom")
-        mock_pygame.mixer = MagicMock()
+        mock_pygame = _make_mock_pygame()
+        mock_pygame.mixer.Sound.side_effect = Exception("boom")
 
         with patch.dict("sys.modules", {"pygame": mock_pygame, "pygame.mixer": mock_pygame.mixer}):
             audio_module._initialized = True

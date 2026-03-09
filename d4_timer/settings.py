@@ -12,6 +12,7 @@ from typing import Dict
 
 from .config import (
     DEFAULT_ALERT_MINUTES,
+    DEFAULT_ALERT_BG,
     DEFAULT_ENABLED,
     DEFAULT_WINDOW_BG,
     SETTINGS_DIR_NAME,
@@ -35,6 +36,12 @@ class Settings:
     window_bg: str = DEFAULT_WINDOW_BG
     window_x: int | None = None
     window_y: int | None = None
+    alert_bg: str = DEFAULT_ALERT_BG
+    alert_x: int | None = None
+    alert_y: int | None = None
+    settings_x: int | None = None
+    settings_y: int | None = None
+    alert_auto_dismiss: bool = False
 
     def get_alert_minutes(self, event_type: str) -> int:
         return self.alert_minutes.get(event_type, DEFAULT_ALERT_MINUTES.get(event_type, 5))
@@ -81,6 +88,27 @@ def load_settings(path: Path | None = None) -> Settings:
     raw_y = data.get("window_y")
     window_y = int(raw_y) if isinstance(raw_y, (int, float)) else None
 
+    raw_alert_bg = data.get("alert_bg", DEFAULT_ALERT_BG)
+    alert_bg = (
+        str(raw_alert_bg)
+        if isinstance(raw_alert_bg, str) and raw_alert_bg.startswith("#")
+        else DEFAULT_ALERT_BG
+    )
+
+    raw_ax = data.get("alert_x")
+    alert_x = int(raw_ax) if isinstance(raw_ax, (int, float)) else None
+
+    raw_ay = data.get("alert_y")
+    alert_y = int(raw_ay) if isinstance(raw_ay, (int, float)) else None
+
+    raw_sx = data.get("settings_x")
+    settings_x = int(raw_sx) if isinstance(raw_sx, (int, float)) else None
+
+    raw_sy = data.get("settings_y")
+    settings_y = int(raw_sy) if isinstance(raw_sy, (int, float)) else None
+
+    alert_auto_dismiss = bool(data.get("alert_auto_dismiss", False))
+
     return Settings(
         alert_minutes=alert_minutes,
         enabled=enabled,
@@ -88,6 +116,12 @@ def load_settings(path: Path | None = None) -> Settings:
         window_bg=window_bg,
         window_x=window_x,
         window_y=window_y,
+        alert_bg=alert_bg,
+        alert_x=alert_x,
+        alert_y=alert_y,
+        settings_x=settings_x,
+        settings_y=settings_y,
+        alert_auto_dismiss=alert_auto_dismiss,
     )
 
 
@@ -103,6 +137,12 @@ def save_settings(settings: Settings, path: Path | None = None) -> None:
         "window_bg": settings.window_bg,
         "window_x": settings.window_x,
         "window_y": settings.window_y,
+        "alert_bg": settings.alert_bg,
+        "alert_x": settings.alert_x,
+        "alert_y": settings.alert_y,
+        "settings_x": settings.settings_x,
+        "settings_y": settings.settings_y,
+        "alert_auto_dismiss": settings.alert_auto_dismiss,
     }
 
     tmp = target.with_suffix(".tmp")

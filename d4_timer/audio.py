@@ -55,17 +55,22 @@ def generate_alert_sound() -> Optional[Any]:
     try:
         import pygame
 
-        num_samples = int(AUDIO_SAMPLE_RATE * AUDIO_DURATION_MS / 1000)
+        # Use actual post-init settings — pre_init values are hints, not guarantees
+        freq, _size, channels = pygame.mixer.get_init()
+        num_samples = int(freq * AUDIO_DURATION_MS / 1000)
         max_amplitude = int(32767 * AUDIO_VOLUME)
 
-        samples = array.array("h", [0] * num_samples)
+        # Build interleaved buffer for mono or stereo without numpy dependency
+        buf = array.array("h", [0] * num_samples * channels)
         for i in range(num_samples):
-            t = i / AUDIO_SAMPLE_RATE
+            t = i / freq
             # Fade out over last 10% of duration to avoid click
             fade = 1.0 - max(0.0, (i - num_samples * 0.9) / (num_samples * 0.1))
-            samples[i] = int(max_amplitude * math.sin(2 * math.pi * AUDIO_FREQUENCY_HZ * t) * fade)
+            val = int(max_amplitude * math.sin(2 * math.pi * AUDIO_FREQUENCY_HZ * t) * fade)
+            for ch in range(channels):
+                buf[i * channels + ch] = val
 
-        sound = pygame.sndarray.make_sound(samples)  # type: ignore[arg-type]
+        sound = pygame.mixer.Sound(buffer=buf)
         _sound_cache = sound
         return sound
     except Exception:

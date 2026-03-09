@@ -9,7 +9,7 @@ import time
 from typing import Any
 
 from .api import EventData, Schedule, fetch_schedule, parse_schedule
-from .audio import play_alert
+from .audio import generate_alert_sound, play_alert
 from .config import (
     API_BACKOFF_MAX_SECONDS,
     API_POLL_INTERVAL_SECONDS,
@@ -72,7 +72,12 @@ class AppController:
             save_settings(self._settings)
             self._main_window.apply_bg(new_settings.window_bg)
 
-        win = SettingsWindow(self._root, self._settings, _on_save)
+        def _on_settings_pos(x: int, y: int) -> None:
+            self._settings.settings_x = x
+            self._settings.settings_y = y
+            save_settings(self._settings)
+
+        win = SettingsWindow(self._root, self._settings, _on_save, _on_settings_pos)
         win.show()
 
     def show_main_window(self) -> None:
@@ -99,7 +104,7 @@ class AppController:
 
         if not self._quiet and not self._settings.mute_all:
             play_alert()
-        AlertWindow(self._root, soonest).show()
+        AlertWindow(self._root, soonest, self._settings, self._save_alert_pos).show()
 
     def toggle_event(self, event_type: str) -> None:
         """Flip the enabled state for an event type and update the main window."""
@@ -117,6 +122,7 @@ class AppController:
 
     def run(self) -> None:
         """Start all threads and enter the tkinter mainloop."""
+        threading.Thread(target=generate_alert_sound, daemon=True, name="audio-prewarm").start()
 
         def _schedule_toggle(et: str) -> None:
             self._root.after(0, self.toggle_event, et)
@@ -186,7 +192,7 @@ class AppController:
             for event in alerts:
                 if not self._quiet:
                     play_alert()
-                AlertWindow(self._root, event).show()
+                AlertWindow(self._root, event, self._settings, self._save_alert_pos).show()
                 log.info("Alert fired for %s at %s", event.event_type, event.timestamp)
 
         self._root.after(TICK_INTERVAL_MS, self._tick)
@@ -219,6 +225,9 @@ class AppController:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _save_alert_pos(self) -> None:
+        save_settings(self._settings)
 
     def _update_tray_icon(self) -> None:
         if self._tray_icon:
