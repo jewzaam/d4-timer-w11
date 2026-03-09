@@ -18,6 +18,7 @@ from .config import (
 log = logging.getLogger(__name__)
 
 _sound_cache: Optional[Any] = None
+_cached_frequency: int = 0
 _initialized: bool = False
 
 
@@ -43,10 +44,10 @@ def _init_pygame() -> bool:
         return False
 
 
-def generate_alert_sound() -> Optional[Any]:
+def generate_alert_sound(frequency_hz: int = AUDIO_FREQUENCY_HZ) -> Optional[Any]:
     """Build and cache a pygame Sound object (sine wave). Returns None on failure."""
-    global _sound_cache
-    if _sound_cache is not None:
+    global _sound_cache, _cached_frequency
+    if _sound_cache is not None and _cached_frequency == frequency_hz:
         return _sound_cache
 
     if not _init_pygame():
@@ -66,21 +67,22 @@ def generate_alert_sound() -> Optional[Any]:
             t = i / freq
             # Fade out over last 10% of duration to avoid click
             fade = 1.0 - max(0.0, (i - num_samples * 0.9) / (num_samples * 0.1))
-            val = int(max_amplitude * math.sin(2 * math.pi * AUDIO_FREQUENCY_HZ * t) * fade)
+            val = int(max_amplitude * math.sin(2 * math.pi * frequency_hz * t) * fade)
             for ch in range(channels):
                 buf[i * channels + ch] = val
 
         sound = pygame.mixer.Sound(buffer=buf)
         _sound_cache = sound
+        _cached_frequency = frequency_hz
         return sound
     except Exception:
         log.exception("Failed to generate alert sound")
         return None
 
 
-def play_alert() -> None:
+def play_alert(frequency_hz: int = AUDIO_FREQUENCY_HZ) -> None:
     """Play the alert sound. No-op if pygame is unavailable or sound fails."""
-    sound = generate_alert_sound()
+    sound = generate_alert_sound(frequency_hz)
     if sound is None:
         return
     try:
@@ -91,6 +93,7 @@ def play_alert() -> None:
 
 def reset_cache() -> None:
     """Reset cached sound and init state — for testing."""
-    global _sound_cache, _initialized
+    global _sound_cache, _cached_frequency, _initialized
     _sound_cache = None
+    _cached_frequency = 0
     _initialized = False

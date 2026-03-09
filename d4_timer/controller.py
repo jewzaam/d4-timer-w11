@@ -52,6 +52,7 @@ class AppController:
         # UI
         self._main_window = MainWindow(self._root, self, self._settings)
         self._tray_icon: Any = None
+        self._settings_window: SettingsWindow | None = None
 
     # ------------------------------------------------------------------
     # Public API (called from UI or tray)
@@ -66,19 +67,27 @@ class AppController:
     def open_settings(self) -> None:
         def _on_save(new_settings: Settings) -> None:
             old_alert = self._settings.alert_minutes
+            old_enabled = dict(self._settings.enabled)
             self._settings = new_settings
             if new_settings.alert_minutes != old_alert:
                 self._scheduler.reset_fired()
             save_settings(self._settings)
             self._main_window.apply_bg(new_settings.window_bg)
+            for et in ALL_EVENT_TYPES:
+                if old_enabled.get(et) != new_settings.enabled.get(et):
+                    self._main_window.set_event_visible(et, new_settings.is_enabled(et))
 
         def _on_settings_pos(x: int, y: int) -> None:
             self._settings.settings_x = x
             self._settings.settings_y = y
             save_settings(self._settings)
 
-        win = SettingsWindow(self._root, self._settings, _on_save, _on_settings_pos)
-        win.show()
+        if self._settings_window is None:
+            self._settings_window = SettingsWindow(
+                self._root, self._settings, _on_save, _on_settings_pos
+            )
+        self._settings_window._settings = self._settings
+        self._settings_window.show()
 
     def show_main_window(self) -> None:
         self._main_window.show()
@@ -103,7 +112,7 @@ class AppController:
             )
 
         if not self._quiet and not self._settings.mute_all:
-            play_alert()
+            play_alert(self._settings.alert_frequency_hz)
         AlertWindow(self._root, soonest, self._settings, self._save_alert_pos).show()
 
     def toggle_event(self, event_type: str) -> None:
@@ -190,8 +199,17 @@ class AppController:
         if not self._settings.mute_all:
             alerts = self._scheduler.check_alerts(schedule, self._settings)
             for event in alerts:
+                log.debug(
+                    "Dispatching alert: %s | alert_minutes=%s | enabled=%s"
+                    " | mute_all=%s | freq_hz=%d",
+                    event.event_type,
+                    self._settings.alert_minutes,
+                    self._settings.enabled,
+                    self._settings.mute_all,
+                    self._settings.alert_frequency_hz,
+                )
                 if not self._quiet:
-                    play_alert()
+                    play_alert(self._settings.alert_frequency_hz)
                 AlertWindow(self._root, event, self._settings, self._save_alert_pos).show()
                 log.info("Alert fired for %s at %s", event.event_type, event.timestamp)
 

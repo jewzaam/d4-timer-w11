@@ -3,12 +3,20 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable, Optional
 
 from .api import EventData, Schedule
 from .config import ALL_EVENT_TYPES, EVENT_HELLTIDE, HELLTIDE_DURATION_SECONDS
 from .settings import Settings
+
+log = logging.getLogger(__name__)
+
+
+def _ts(epoch: float) -> str:
+    """Format epoch seconds as local HH:MM:SS for log readability."""
+    return time.strftime("%H:%M:%S", time.localtime(epoch))
 
 
 class AlertScheduler:
@@ -80,12 +88,24 @@ class AlertScheduler:
             if event is None:
                 continue
 
-            alert_lead = settings.get_alert_minutes(event_type) * 60
+            alert_minutes = settings.get_alert_minutes(event_type)
+            alert_lead = alert_minutes * 60
+            alert_time = event.timestamp - alert_lead
+            countdown = event.timestamp - now
             key = (event_type, event.timestamp)
 
-            alert_time = event.timestamp - alert_lead
             if alert_time <= now < event.timestamp and key not in self._fired:
                 self._fired.add(key)
+                log.info(
+                    "Alert FIRED: %-12s | event@%s | alert_minutes=%d"
+                    " | countdown_at_fire=%.2fmin | expected<=%.2fmin | delta=%.2fmin",
+                    event_type,
+                    _ts(event.timestamp),
+                    alert_minutes,
+                    countdown / 60,
+                    alert_minutes,
+                    alert_minutes - countdown / 60,
+                )
                 alerts.append(event)
 
         return alerts

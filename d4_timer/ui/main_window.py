@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from ..config import (
     ALL_EVENT_TYPES,
     EVENT_DISPLAY_NAMES,
-    MAIN_WINDOW_TITLE,
 )
 from ..settings import Settings, save_settings
 
@@ -85,12 +84,43 @@ class MainWindow:
         self._window.update_idletasks()
         self._window.resizable(False, False)
 
+    def _show_context_menu(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+        if not (self._window and self._window.winfo_exists()):
+            return
+        menu = tk.Menu(
+            self._window,
+            tearoff=0,
+            bg="#2a2a2a",
+            fg="#ffffff",
+            activebackground="#444444",
+            activeforeground="#ffffff",
+        )
+        mute_label = "Unmute" if self._controller._settings.mute_all else "Mute"
+        menu.add_command(label=mute_label, command=self._controller.toggle_mute)
+        menu.add_command(label="Settings…", command=self._controller.open_settings)
+        menu.add_command(label="Test Alert", command=self._controller.test_alert)
+        menu.add_separator()
+        for event_type in ALL_EVENT_TYPES:
+            display = EVENT_DISPLAY_NAMES.get(event_type, event_type)
+            enabled = self._controller.is_event_enabled(event_type)
+            label = f"\u2713 {display}" if enabled else f"    {display}"
+            et = event_type
+            menu.add_command(
+                label=label,
+                command=lambda e=et: self._controller.toggle_event(e),  # type: ignore[misc]
+            )
+        menu.add_separator()
+        menu.add_command(label="Hide", command=self.hide)
+        menu.add_command(label="Quit", command=self._controller._quit)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
     def _build(self) -> None:
         win = tk.Toplevel(self._root)
-        win.title(MAIN_WINDOW_TITLE)
-        win.wm_attributes("-toolwindow", True)
+        win.overrideredirect(True)
         win.wm_attributes("-topmost", True)
-        win.protocol("WM_DELETE_WINDOW", self.hide)
         win.configure(bg=self._bg)
 
         if self._settings.window_x is not None and self._settings.window_y is not None:
@@ -98,6 +128,15 @@ class MainWindow:
 
         frame = tk.Frame(win, bg=self._bg, padx=4, pady=4)
         frame.pack(fill=tk.BOTH, expand=True)
+
+        _drag: list[int] = [0, 0]
+
+        def _start_drag(ev: tk.Event) -> None:  # type: ignore[type-arg]
+            _drag[0] = ev.x_root - win.winfo_x()
+            _drag[1] = ev.y_root - win.winfo_y()
+
+        def _do_drag(ev: tk.Event) -> None:  # type: ignore[type-arg]
+            win.geometry(f"+{ev.x_root - _drag[0]}+{ev.y_root - _drag[1]}")
 
         self._countdown_vars = {}
         self._label_vars = {}
@@ -140,6 +179,11 @@ class MainWindow:
             if not visible:
                 name_lbl.grid_remove()
                 count_lbl.grid_remove()
+
+        for widget in [frame, *self._bg_widgets]:
+            widget.bind("<Button-1>", _start_drag)
+            widget.bind("<B1-Motion>", _do_drag)
+            widget.bind("<Button-3>", self._show_context_menu)
 
         win.resizable(False, False)
         self._window = win
