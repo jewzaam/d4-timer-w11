@@ -21,9 +21,7 @@ def make_schedule(wb_ts=None, ht_ts=None, leg_ts=None) -> Schedule:
 
 
 def make_settings(
-    wb_min=5, ht_min=3, leg_min=2,
-    wb_en=True, ht_en=True, leg_en=True,
-    mute=False
+    wb_min=5, ht_min=3, leg_min=2, wb_en=True, ht_en=True, leg_en=True, mute=False
 ) -> Settings:
     return Settings(
         alert_minutes={
@@ -153,3 +151,60 @@ class TestCheckAlerts:
         settings = make_settings(wb_min=5)
         alerts = sched.check_alerts(schedule, settings)
         assert len(alerts) == 1
+
+
+class TestHelltideDisplay:
+    HELLTIDE_TS = 1000  # arbitrary start timestamp
+
+    def _scheduler_at(self, now: float) -> AlertScheduler:
+        return AlertScheduler(now_fn=lambda: now)
+
+    def _make_ht_schedule(self, ts: int) -> Schedule:
+        s = Schedule()
+        s.helltide.append(EventData(event_type=EVENT_HELLTIDE, timestamp=ts))
+        return s
+
+    def test_active_within_window(self):
+        # 100s into the 3300s helltide window
+        now = self.HELLTIDE_TS + 100
+        sched = self._scheduler_at(now)
+        schedule = self._make_ht_schedule(self.HELLTIDE_TS)
+        status, countdown = sched.helltide_display(schedule, now)
+        assert status == "Active"
+        # remaining = 3300 - 100 = 3200s = 0h 53m 20s
+        assert countdown == "00:53:20"
+
+    def test_inactive_before_start(self):
+        # 500s before the helltide starts
+        now = self.HELLTIDE_TS - 500
+        sched = self._scheduler_at(now)
+        schedule = self._make_ht_schedule(self.HELLTIDE_TS)
+        status, countdown = sched.helltide_display(schedule, now)
+        assert status == "Next"
+        # seconds_until = 500 = 0h 8m 20s
+        assert countdown == "00:08:20"
+
+    def test_inactive_after_end(self):
+        from d4_timer.config import HELLTIDE_DURATION_SECONDS
+
+        # Past the end of the only helltide event
+        now = self.HELLTIDE_TS + HELLTIDE_DURATION_SECONDS + 100
+        sched = self._scheduler_at(now)
+        schedule = self._make_ht_schedule(self.HELLTIDE_TS)
+        status, countdown = sched.helltide_display(schedule, now)
+        assert status == "Next"
+        assert countdown == "--:--:--"  # no future events
+
+    def test_active_at_exact_start(self):
+        now = float(self.HELLTIDE_TS)
+        sched = self._scheduler_at(now)
+        schedule = self._make_ht_schedule(self.HELLTIDE_TS)
+        status, _ = sched.helltide_display(schedule, now)
+        assert status == "Active"
+
+    def test_empty_schedule_returns_next(self):
+        sched = self._scheduler_at(1000.0)
+        schedule = Schedule()
+        status, countdown = sched.helltide_display(schedule, 1000.0)
+        assert status == "Next"
+        assert countdown == "--:--:--"

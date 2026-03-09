@@ -4,32 +4,36 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
 from typing import TYPE_CHECKING
 
 from ..config import (
     ALL_EVENT_TYPES,
     EVENT_DISPLAY_NAMES,
-    MAIN_WINDOW_HEIGHT,
     MAIN_WINDOW_TITLE,
-    MAIN_WINDOW_WIDTH,
 )
+from ..settings import Settings, save_settings
 
 if TYPE_CHECKING:
     from ..controller import AppController
 
 
 class MainWindow:
-    """tk.Toplevel showing three event countdown rows."""
+    """tk.Toplevel showing event countdown rows — topmost, no buttons."""
 
-    def __init__(self, root: tk.Tk, controller: "AppController"):
+    def __init__(self, root: tk.Tk, controller: "AppController", settings: Settings):
         self._root = root
         self._controller = controller
+        self._settings = settings
         self._window: tk.Toplevel | None = None
         self._countdown_vars: dict[str, tk.StringVar] = {}
+        self._label_vars: dict[str, tk.StringVar] = {}
+        self._row_widgets: dict[str, list[tk.Widget]] = {}
+        self._bg_widgets: list[tk.Widget] = []
+        self._bg = settings.window_bg
 
     def show(self) -> None:
         if self._window and self._window.winfo_exists():
+            self._window.deiconify()
             self._window.lift()
             self._window.focus_force()
             return
@@ -37,61 +41,109 @@ class MainWindow:
 
     def hide(self) -> None:
         if self._window and self._window.winfo_exists():
+            self._controller._settings.window_x = self._window.winfo_x()
+            self._controller._settings.window_y = self._window.winfo_y()
+            save_settings(self._controller._settings)
             self._window.withdraw()
 
-    def update_countdowns(self, countdowns: dict[str, str]) -> None:
+    def update_countdowns(
+        self,
+        countdowns: dict[str, str],
+        labels: dict[str, str] | None = None,
+    ) -> None:
         for event_type, text in countdowns.items():
             var = self._countdown_vars.get(event_type)
             if var:
                 var.set(text)
+        for event_type, var in self._label_vars.items():
+            text = (labels or {}).get(event_type, EVENT_DISPLAY_NAMES.get(event_type, event_type))
+            var.set(text)
+
+    def apply_bg(self, color: str) -> None:
+        """Live-recolor window background without rebuild."""
+        self._bg = color
+        if self._window and self._window.winfo_exists():
+            self._window.configure(bg=color)  # type: ignore[call-arg]
+            for w in self._bg_widgets:
+                try:
+                    w.configure(bg=color)  # type: ignore[call-arg]
+                except tk.TclError:
+                    pass
+
+    def set_event_visible(self, event_type: str, visible: bool) -> None:
+        """Show or hide an event row; window resizes to content."""
+        widgets = self._row_widgets.get(event_type)
+        if not widgets or not (self._window and self._window.winfo_exists()):
+            return
+        for w in widgets:
+            if visible:
+                w.grid()
+            else:
+                w.grid_remove()
+        self._window.resizable(True, True)
+        self._window.geometry("")
+        self._window.update_idletasks()
+        self._window.resizable(False, False)
 
     def _build(self) -> None:
         win = tk.Toplevel(self._root)
         win.title(MAIN_WINDOW_TITLE)
-        win.resizable(False, False)
         win.wm_attributes("-toolwindow", True)
+        win.wm_attributes("-topmost", True)
         win.protocol("WM_DELETE_WINDOW", self.hide)
+        win.configure(bg=self._bg)
 
-        win.geometry(f"{MAIN_WINDOW_WIDTH}x{MAIN_WINDOW_HEIGHT}")
+        if self._settings.window_x is not None and self._settings.window_y is not None:
+            win.geometry(f"+{self._settings.window_x}+{self._settings.window_y}")
 
-        frame = ttk.Frame(win, padding=12)
+        frame = tk.Frame(win, bg=self._bg, padx=4, pady=4)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        # Event countdown rows
         self._countdown_vars = {}
+        self._label_vars = {}
+        self._row_widgets = {}
+        self._bg_widgets = [frame]
+
         for row_idx, event_type in enumerate(ALL_EVENT_TYPES):
-            label = EVENT_DISPLAY_NAMES.get(event_type, event_type)
-            ttk.Label(frame, text=label + ":", anchor="w", width=14).grid(
-                row=row_idx, column=0, sticky="w", pady=2
+            display_name = EVENT_DISPLAY_NAMES.get(event_type, event_type)
+            visible = self._settings.is_enabled(event_type)
+
+            label_var = tk.StringVar(value=display_name)
+            self._label_vars[event_type] = label_var
+
+            name_lbl = tk.Label(
+                frame,
+                textvariable=label_var,
+                anchor="w",
+                width=18,
+                bg=self._bg,
+                fg="#cccccc",
+                font=("Segoe UI", 10),
             )
-            var = tk.StringVar(value="--:--:--")
-            self._countdown_vars[event_type] = var
-            ttk.Label(frame, textvariable=var, font=("Consolas", 13)).grid(
-                row=row_idx, column=1, sticky="w", padx=8
+            name_lbl.grid(row=row_idx, column=0, sticky="w", pady=2, padx=(4, 0))
+
+            countdown_var = tk.StringVar(value="--:--:--")
+            self._countdown_vars[event_type] = countdown_var
+
+            count_lbl = tk.Label(
+                frame,
+                textvariable=countdown_var,
+                bg=self._bg,
+                fg="#ffffff",
+                font=("Consolas", 13),
             )
+            count_lbl.grid(row=row_idx, column=1, sticky="w", padx=(8, 4), pady=2)
 
-        # Button row
-        btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=len(ALL_EVENT_TYPES), column=0, columnspan=2, pady=(10, 0))
+            self._row_widgets[event_type] = [name_lbl, count_lbl]
+            self._bg_widgets.extend([name_lbl, count_lbl])
 
-        ttk.Button(
-            btn_frame,
-            text="Mute All",
-            command=self._controller.toggle_mute,
-        ).pack(side=tk.LEFT, padx=4)
+            if not visible:
+                name_lbl.grid_remove()
+                count_lbl.grid_remove()
 
-        ttk.Button(
-            btn_frame,
-            text="Settings",
-            command=self._controller.open_settings,
-        ).pack(side=tk.LEFT, padx=4)
-
+        win.resizable(False, False)
         self._window = win
 
     @property
     def is_visible(self) -> bool:
-        return bool(
-            self._window
-            and self._window.winfo_exists()
-            and self._window.winfo_viewable()
-        )
+        return bool(self._window and self._window.winfo_exists() and self._window.winfo_viewable())

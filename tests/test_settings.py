@@ -3,7 +3,7 @@
 
 import json
 
-from d4_timer.config import DEFAULT_ALERT_MINUTES, DEFAULT_ENABLED
+from d4_timer.config import DEFAULT_ALERT_MINUTES, DEFAULT_ENABLED, DEFAULT_WINDOW_BG
 from d4_timer.settings import Settings, load_settings, save_settings
 
 
@@ -88,6 +88,39 @@ class TestSaveSettings:
         assert "alert_minutes" in data
         assert "enabled" in data
         assert "mute_all" in data
+
+
+class TestSettingsWindowFields:
+    def test_defaults_have_window_bg(self):
+        s = Settings()
+        assert s.window_bg == DEFAULT_WINDOW_BG
+
+    def test_defaults_have_none_position(self):
+        s = Settings()
+        assert s.window_x is None
+        assert s.window_y is None
+
+    def test_saves_and_loads_window_fields(self, tmp_path):
+        p = tmp_path / "settings.json"
+        s = Settings(window_bg="#ff0000", window_x=100, window_y=200)
+        save_settings(s, p)
+        loaded = load_settings(p)
+        assert loaded.window_bg == "#ff0000"
+        assert loaded.window_x == 100
+        assert loaded.window_y == 200
+
+    def test_invalid_bg_falls_back_to_default(self, tmp_path):
+        p = tmp_path / "settings.json"
+        p.write_text('{"window_bg": "notacolor"}')
+        loaded = load_settings(p)
+        assert loaded.window_bg == DEFAULT_WINDOW_BG
+
+    def test_null_position_loads_as_none(self, tmp_path):
+        p = tmp_path / "settings.json"
+        p.write_text('{"window_x": null, "window_y": null}')
+        loaded = load_settings(p)
+        assert loaded.window_x is None
+        assert loaded.window_y is None
 
 
 class TestSettingsHelpers:

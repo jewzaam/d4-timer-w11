@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from typing import Any, Callable
 
 from PIL import Image, ImageDraw
 
 from .config import (
+    ALL_EVENT_TYPES,
+    EVENT_DISPLAY_NAMES,
     TRAY_ICON_COLOR_ACTIVE,
     TRAY_ICON_COLOR_MUTED,
     TRAY_ICON_NAME,
@@ -36,15 +38,32 @@ def create_tray_icon(
     on_click: Callable,
     on_quit: Callable,
     on_toggle_mute: Callable,
-) -> object:
+    on_settings: Callable,
+    on_test_alert: Callable,
+    on_toggle_event: Callable[[str], None],
+    is_event_enabled: Callable[[str], bool],
+) -> Any:
     """Create and return a pystray Icon (not yet run)."""
     import pystray
 
     icon_image = generate_icon_image(muted=False)
 
+    def _make_event_item(event_type: str) -> pystray.MenuItem:
+        display_name = EVENT_DISPLAY_NAMES.get(event_type, event_type)
+        et = event_type
+        return pystray.MenuItem(
+            display_name,
+            lambda icon, item: on_toggle_event(et),
+            checked=lambda item: is_event_enabled(et),
+        )
+
     menu = pystray.Menu(
         pystray.MenuItem("Open", on_click, default=True),
         pystray.MenuItem("Toggle Mute", on_toggle_mute),
+        pystray.MenuItem("Settings", on_settings),
+        pystray.MenuItem("Test Alert", on_test_alert),
+        pystray.Menu.SEPARATOR,
+        *[_make_event_item(et) for et in ALL_EVENT_TYPES],
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", on_quit),
     )

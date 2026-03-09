@@ -13,6 +13,7 @@ from typing import Dict
 from .config import (
     DEFAULT_ALERT_MINUTES,
     DEFAULT_ENABLED,
+    DEFAULT_WINDOW_BG,
     SETTINGS_DIR_NAME,
     SETTINGS_FILE_NAME,
     ALL_EVENT_TYPES,
@@ -28,18 +29,15 @@ def _settings_path() -> Path:
 
 @dataclass
 class Settings:
-    alert_minutes: Dict[str, int] = field(
-        default_factory=lambda: dict(DEFAULT_ALERT_MINUTES)
-    )
-    enabled: Dict[str, bool] = field(
-        default_factory=lambda: dict(DEFAULT_ENABLED)
-    )
+    alert_minutes: Dict[str, int] = field(default_factory=lambda: dict(DEFAULT_ALERT_MINUTES))
+    enabled: Dict[str, bool] = field(default_factory=lambda: dict(DEFAULT_ENABLED))
     mute_all: bool = False
+    window_bg: str = DEFAULT_WINDOW_BG
+    window_x: int | None = None
+    window_y: int | None = None
 
     def get_alert_minutes(self, event_type: str) -> int:
-        return self.alert_minutes.get(
-            event_type, DEFAULT_ALERT_MINUTES.get(event_type, 5)
-        )
+        return self.alert_minutes.get(event_type, DEFAULT_ALERT_MINUTES.get(event_type, 5))
 
     def is_enabled(self, event_type: str) -> bool:
         return self.enabled.get(event_type, True)
@@ -72,10 +70,24 @@ def load_settings(path: Path | None = None) -> Settings:
 
     mute_all = bool(data.get("mute_all", False))
 
+    raw_bg = data.get("window_bg", DEFAULT_WINDOW_BG)
+    window_bg = (
+        str(raw_bg) if isinstance(raw_bg, str) and raw_bg.startswith("#") else DEFAULT_WINDOW_BG
+    )
+
+    raw_x = data.get("window_x")
+    window_x = int(raw_x) if isinstance(raw_x, (int, float)) else None
+
+    raw_y = data.get("window_y")
+    window_y = int(raw_y) if isinstance(raw_y, (int, float)) else None
+
     return Settings(
         alert_minutes=alert_minutes,
         enabled=enabled,
         mute_all=mute_all,
+        window_bg=window_bg,
+        window_x=window_x,
+        window_y=window_y,
     )
 
 
@@ -88,6 +100,9 @@ def save_settings(settings: Settings, path: Path | None = None) -> None:
         "alert_minutes": settings.alert_minutes,
         "enabled": settings.enabled,
         "mute_all": settings.mute_all,
+        "window_bg": settings.window_bg,
+        "window_x": settings.window_x,
+        "window_y": settings.window_y,
     }
 
     tmp = target.with_suffix(".tmp")

@@ -57,11 +57,25 @@ class TestParseSchedule:
         schedule = parse_schedule(data)
         assert schedule.world_boss[0].zone_name is None
 
-    def test_next_event_returns_first(self, sample_schedule_data):
+    def test_next_event_returns_first_future(self, sample_schedule_data):
         schedule = parse_schedule(sample_schedule_data)
-        nxt = schedule.next_event(EVENT_WORLD_BOSS)
+        # Anchor now before all fixture timestamps so both are future
+        nxt = schedule.next_event(EVENT_WORLD_BOSS, now=0.0)
         assert nxt is not None
         assert nxt.timestamp == 1710000000
+
+    def test_next_event_skips_past_events(self, sample_schedule_data):
+        schedule = parse_schedule(sample_schedule_data)
+        # Anchor now after the first event — should return second
+        nxt = schedule.next_event(EVENT_WORLD_BOSS, now=1710000001.0)
+        assert nxt is not None
+        assert nxt.timestamp == 1710012600
+
+    def test_next_event_all_past_returns_none(self, sample_schedule_data):
+        schedule = parse_schedule(sample_schedule_data)
+        # Anchor now after all fixture events
+        nxt = schedule.next_event(EVENT_WORLD_BOSS, now=9999999999.0)
+        assert nxt is None
 
     def test_next_event_empty_returns_none(self):
         schedule = Schedule()
@@ -86,9 +100,7 @@ class TestFetchSchedule:
 
         with patch("d4_timer.api.requests.get", return_value=mock_response) as mock_get:
             result = fetch_schedule("https://example.com/api")
-            mock_get.assert_called_once_with(
-                "https://example.com/api", timeout=10
-            )
+            mock_get.assert_called_once_with("https://example.com/api", timeout=10)
             assert result["world_boss"][0]["boss"] == "Ashava"
 
     def test_raises_on_http_error(self):

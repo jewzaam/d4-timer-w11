@@ -7,7 +7,7 @@ import time
 from typing import Callable, Optional
 
 from .api import EventData, Schedule
-from .config import ALL_EVENT_TYPES
+from .config import ALL_EVENT_TYPES, EVENT_HELLTIDE, HELLTIDE_DURATION_SECONDS
 from .settings import Settings
 
 
@@ -38,9 +38,36 @@ class AlertScheduler:
         minutes, seconds = divmod(rem, 60)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    def check_alerts(
-        self, schedule: Schedule, settings: Settings
-    ) -> list[EventData]:
+    def helltide_display(self, schedule: Schedule, now: float | None = None) -> tuple[str, str]:
+        """Return (status, countdown) for helltide.
+
+        status is 'Active' if a helltide is running, 'Next' otherwise.
+        countdown is time until end (Active) or until next start (Next).
+        """
+        if now is None:
+            now = self._now_fn()
+
+        events = schedule.by_type(EVENT_HELLTIDE)
+
+        # Find the most recently started helltide (largest timestamp <= now)
+        recent = None
+        for event in events:
+            if event.timestamp <= now:
+                if recent is None or event.timestamp > recent.timestamp:
+                    recent = event
+
+        if recent is not None:
+            end_time = recent.timestamp + HELLTIDE_DURATION_SECONDS
+            if now < end_time:
+                remaining = int(end_time - now)
+                hours, rem = divmod(remaining, 3600)
+                minutes, seconds = divmod(rem, 60)
+                return ("Active", f"{hours:02d}:{minutes:02d}:{seconds:02d}")
+
+        next_event = schedule.next_event(EVENT_HELLTIDE, now=now)
+        return ("Next", self.countdown_str(next_event))
+
+    def check_alerts(self, schedule: Schedule, settings: Settings) -> list[EventData]:
         """Return events that should fire an alert right now."""
         alerts: list[EventData] = []
         now = self._now_fn()
@@ -49,7 +76,7 @@ class AlertScheduler:
             if not settings.is_enabled(event_type):
                 continue
 
-            event = schedule.next_event(event_type)
+            event = schedule.next_event(event_type, now=now)
             if event is None:
                 continue
 

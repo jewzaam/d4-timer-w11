@@ -5,12 +5,18 @@ from __future__ import annotations
 
 import logging
 import threading
-from .api import Schedule, fetch_schedule, parse_schedule
+import time
+from typing import Any
+
+from .api import EventData, Schedule, fetch_schedule, parse_schedule
 from .audio import play_alert
 from .config import (
     API_BACKOFF_MAX_SECONDS,
     API_POLL_INTERVAL_SECONDS,
     ALL_EVENT_TYPES,
+    EVENT_DISPLAY_NAMES,
+    EVENT_HELLTIDE,
+    EVENT_WORLD_BOSS,
     TICK_INTERVAL_MS,
 )
 from .scheduler import AlertScheduler
@@ -39,12 +45,13 @@ class AppController:
 
         # tkinter root
         import tkinter as tk
+
         self._root = tk.Tk()
         self._root.withdraw()
 
         # UI
-        self._main_window = MainWindow(self._root, self)
-        self._tray_icon = None
+        self._main_window = MainWindow(self._root, self, self._settings)
+        self._tray_icon: Any = None
 
     # ------------------------------------------------------------------
     # Public API (called from UI or tray)
@@ -63,6 +70,7 @@ class AppController:
             if new_settings.alert_minutes != old_alert:
                 self._scheduler.reset_fired()
             save_settings(self._settings)
+            self._main_window.apply_bg(new_settings.window_bg)
 
         win = SettingsWindow(self._root, self._settings, _on_save)
         win.show()
@@ -70,26 +78,63 @@ class AppController:
     def show_main_window(self) -> None:
         self._main_window.show()
 
+    def test_alert(self) -> None:
+        """Play audio and show an AlertWindow for the soonest upcoming event."""
+        with self._schedule_lock:
+            schedule = self._schedule
+        now = time.time()
+
+        soonest: EventData | None = None
+        for event_type in ALL_EVENT_TYPES:
+            event = schedule.next_event(event_type, now=now)
+            if event is not None:
+                if soonest is None or event.timestamp < soonest.timestamp:
+                    soonest = event
+
+        if soonest is None:
+            soonest = EventData(
+                event_type=EVENT_WORLD_BOSS,
+                timestamp=int(now) + 60,
+            )
+
+        if not self._quiet and not self._settings.mute_all:
+            play_alert()
+        AlertWindow(self._root, soonest).show()
+
+    def toggle_event(self, event_type: str) -> None:
+        """Flip the enabled state for an event type and update the main window."""
+        current = self._settings.enabled.get(event_type, True)
+        self._settings.enabled[event_type] = not current
+        save_settings(self._settings)
+        self._main_window.set_event_visible(event_type, self._settings.enabled[event_type])
+
+    def is_event_enabled(self, event_type: str) -> bool:
+        return self._settings.is_enabled(event_type)
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     def run(self) -> None:
         """Start all threads and enter the tkinter mainloop."""
+
+        def _schedule_toggle(et: str) -> None:
+            self._root.after(0, self.toggle_event, et)
+
         self._tray_icon = create_tray_icon(
             on_click=lambda icon, item: self._root.after(0, self.show_main_window),
             on_quit=lambda icon, item: self._root.after(0, self._quit),
             on_toggle_mute=lambda icon, item: self._root.after(0, self.toggle_mute),
+            on_settings=lambda icon, item: self._root.after(0, self.open_settings),
+            on_test_alert=lambda icon, item: self._root.after(0, self.test_alert),
+            on_toggle_event=_schedule_toggle,
+            is_event_enabled=self.is_event_enabled,
         )
 
-        poll_thread = threading.Thread(
-            target=self._poll_loop, daemon=True, name="api-poll"
-        )
+        poll_thread = threading.Thread(target=self._poll_loop, daemon=True, name="api-poll")
         poll_thread.start()
 
-        tray_thread = threading.Thread(
-            target=self._tray_icon.run, daemon=True, name="tray"
-        )
+        tray_thread = threading.Thread(target=self._tray_icon.run, daemon=True, name="tray")
         tray_thread.start()
 
         self._root.after(TICK_INTERVAL_MS, self._tick)
@@ -118,14 +163,22 @@ class AppController:
     def _tick(self) -> None:
         with self._schedule_lock:
             schedule = self._schedule
+        now = time.time()
 
-        # Update countdowns
-        countdowns = {}
+        countdowns: dict[str, str] = {}
+        label_updates: dict[str, str] = {}
+
         for event_type in ALL_EVENT_TYPES:
-            event = schedule.next_event(event_type)
-            countdowns[event_type] = self._scheduler.countdown_str(event)
+            if event_type == EVENT_HELLTIDE:
+                status, ht_str = self._scheduler.helltide_display(schedule, now)
+                countdowns[event_type] = ht_str
+                if status == "Active":
+                    label_updates[event_type] = EVENT_DISPLAY_NAMES[event_type] + " (Active)"
+            else:
+                event = schedule.next_event(event_type)
+                countdowns[event_type] = self._scheduler.countdown_str(event)
 
-        self._main_window.update_countdowns(countdowns)
+        self._main_window.update_countdowns(countdowns, label_updates if label_updates else None)
 
         # Check alerts
         if not self._settings.mute_all:
@@ -150,8 +203,12 @@ class AppController:
                 parsed = parse_schedule(data)
                 with self._schedule_lock:
                     self._schedule = parsed
-                log.debug("Schedule updated: %d WB, %d HT, %d LEG",
-                          len(parsed.world_boss), len(parsed.helltide), len(parsed.legion))
+                log.debug(
+                    "Schedule updated: %d WB, %d HT, %d LEG",
+                    len(parsed.world_boss),
+                    len(parsed.helltide),
+                    len(parsed.legion),
+                )
                 backoff = API_POLL_INTERVAL_SECONDS
             except Exception:
                 log.warning("API fetch failed; retrying in %ss", backoff)
@@ -166,8 +223,6 @@ class AppController:
     def _update_tray_icon(self) -> None:
         if self._tray_icon:
             try:
-                self._tray_icon.icon = generate_icon_image(
-                    muted=self._settings.mute_all
-                )
+                self._tray_icon.icon = generate_icon_image(muted=self._settings.mute_all)
             except Exception:
                 pass

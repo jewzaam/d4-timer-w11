@@ -6,7 +6,7 @@ from __future__ import annotations
 import array
 import logging
 import math
-from typing import Optional
+from typing import Any, Optional
 
 from .config import (
     AUDIO_DURATION_MS,
@@ -17,7 +17,7 @@ from .config import (
 
 log = logging.getLogger(__name__)
 
-_sound_cache: Optional[object] = None
+_sound_cache: Optional[Any] = None
 _initialized: bool = False
 
 
@@ -28,6 +28,7 @@ def _init_pygame() -> bool:
         return True
     try:
         import pygame
+
         pygame.mixer.pre_init(
             frequency=AUDIO_SAMPLE_RATE,
             size=-16,
@@ -42,7 +43,7 @@ def _init_pygame() -> bool:
         return False
 
 
-def generate_alert_sound() -> Optional[object]:
+def generate_alert_sound() -> Optional[Any]:
     """Build and cache a pygame Sound object (sine wave). Returns None on failure."""
     global _sound_cache
     if _sound_cache is not None:
@@ -62,11 +63,9 @@ def generate_alert_sound() -> Optional[object]:
             t = i / AUDIO_SAMPLE_RATE
             # Fade out over last 10% of duration to avoid click
             fade = 1.0 - max(0.0, (i - num_samples * 0.9) / (num_samples * 0.1))
-            samples[i] = int(
-                max_amplitude * math.sin(2 * math.pi * AUDIO_FREQUENCY_HZ * t) * fade
-            )
+            samples[i] = int(max_amplitude * math.sin(2 * math.pi * AUDIO_FREQUENCY_HZ * t) * fade)
 
-        sound = pygame.sndarray.make_sound(samples)
+        sound = pygame.sndarray.make_sound(samples)  # type: ignore[arg-type]
         _sound_cache = sound
         return sound
     except Exception:

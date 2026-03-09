@@ -1,20 +1,13 @@
 # D4 Timer — Diablo 4 Event Tracker for Windows 11
 
-System tray app that polls the helltides.com public API and alerts you ahead of World Boss, Helltide, and Legion events via audio + on-screen popup.
+System tray app that alerts you ahead of World Boss, Helltide, and Legion events via audio + on-screen popup. Event data sourced from the [helltides.com](https://helltides.com) community API.
 
 ## Requirements
 
 - Windows 11
 - Python 3.11+
 
-## Installation
-
-```bash
-pip install -e .
-pip install pytest pytest-cov black flake8 "mypy==1.11.2"
-```
-
-Or use the Makefile:
+## Setup
 
 ```bash
 make install-dev
@@ -23,20 +16,14 @@ make install-dev
 ## Usage
 
 ```bash
-# Run normally
-python -m d4_timer
-
-# With debug logging
-python -m d4_timer --debug
-
-# Suppress audio (popups still appear)
-python -m d4_timer --quiet
+make run          # Start normally
+make run-debug    # Start with debug logging
 ```
 
-Or via installed script:
+To suppress audio (popups still appear), run directly:
 
 ```bash
-d4-timer
+python3 -m d4_timer --quiet
 ```
 
 ## Features
@@ -50,21 +37,18 @@ d4-timer
 
 ## Development
 
-```bash
-make test          # Run unit tests
-make coverage      # Coverage report (target: ≥80%)
-make lint          # flake8
-make format        # black
-make typecheck     # mypy
-```
-
-## Data Source
-
-Events sourced from the [helltides.com](https://helltides.com) community API. No official Blizzard API exists for this data.
+| Target | Description |
+|--------|-------------|
+| `make install-dev` | Install package and dev dependencies |
+| `make test` | Run unit tests |
+| `make coverage` | Coverage report (target: ≥80%) |
+| `make lint` | flake8 |
+| `make format` | black |
+| `make typecheck` | mypy |
 
 ## Architecture
 
 - **Main thread:** tkinter `mainloop()` + 1-second tick for UI updates and alert checks
-- **Poll thread:** daemon thread polling API every 60s with exponential backoff
+- **Poll thread:** daemon thread, fetches API on startup then every 10 minutes with exponential backoff on failure
 - **Tray thread:** pystray event loop; all callbacks dispatched to main thread via `root.after()`
 - No binary assets — icon and audio generated at runtime

@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 from .config import (
     API_TIMEOUT_SECONDS,
@@ -25,9 +26,9 @@ class EventData:
     """A single upcoming event occurrence."""
 
     event_type: str
-    timestamp: int           # Unix epoch seconds
-    boss_name: Optional[str] = None    # World Boss only
-    zone_name: Optional[str] = None    # World Boss only
+    timestamp: int  # Unix epoch seconds
+    boss_name: Optional[str] = None  # World Boss only
+    zone_name: Optional[str] = None  # World Boss only
 
 
 @dataclass
@@ -41,9 +42,14 @@ class Schedule:
     def by_type(self, event_type: str) -> list[EventData]:
         return getattr(self, event_type, [])
 
-    def next_event(self, event_type: str) -> Optional[EventData]:
-        events = self.by_type(event_type)
-        return events[0] if events else None
+    def next_event(self, event_type: str, now: float | None = None) -> Optional[EventData]:
+        """Return the first future event for the given type, skipping past events."""
+        if now is None:
+            now = time.time()
+        for event in self.by_type(event_type):
+            if event.timestamp > now:
+                return event
+        return None
 
 
 def fetch_schedule(url: str = API_URL) -> dict:

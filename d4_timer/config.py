@@ -3,7 +3,7 @@
 
 # API
 API_URL = "https://helltides.com/api/schedule"
-API_POLL_INTERVAL_SECONDS = 60
+API_POLL_INTERVAL_SECONDS = 600  # 10 minutes; countdowns calculated from cached data
 API_BACKOFF_MAX_SECONDS = 300  # 5 minutes
 API_BACKOFF_BASE_SECONDS = 5
 API_TIMEOUT_SECONDS = 10
@@ -45,13 +45,16 @@ MAIN_WINDOW_TITLE = "D4 Timer"
 ALERT_WINDOW_TITLE = "D4 Event Alert"
 ALERT_AUTO_DISMISS_MS = 10_000  # 10 seconds
 MAIN_WINDOW_WIDTH = 320
-MAIN_WINDOW_HEIGHT = 180
+DEFAULT_WINDOW_BG = "#1a1a1a"
+
+# Helltide is active for 55 minutes after its start timestamp
+HELLTIDE_DURATION_SECONDS = 55 * 60
 
 # Tray icon
 TRAY_ICON_NAME = "D4 Timer"
 TRAY_ICON_SIZE = (64, 64)
-TRAY_ICON_COLOR_ACTIVE = "#8B0000"   # dark crimson
-TRAY_ICON_COLOR_MUTED = "#555555"    # gray
+TRAY_ICON_COLOR_ACTIVE = "#30FF06"
+TRAY_ICON_COLOR_MUTED = "#555555"
 
 # Audio
 AUDIO_SAMPLE_RATE = 44100

@@ -33,9 +33,7 @@ class AlertWindow:
         win.wm_attributes("-topmost", True)
         win.wm_attributes("-toolwindow", True)
 
-        event_name = EVENT_DISPLAY_NAMES.get(
-            self._event.event_type, self._event.event_type
-        )
+        event_name = EVENT_DISPLAY_NAMES.get(self._event.event_type, self._event.event_type)
 
         frame = ttk.Frame(win, padding=16)
         frame.pack(fill=tk.BOTH, expand=True)

@@ -52,13 +52,9 @@ class SettingsWindow:
         for row_idx, event_type in enumerate(ALL_EVENT_TYPES, start=1):
             label = EVENT_DISPLAY_NAMES.get(event_type, event_type)
 
-            ttk.Label(frame, text=label).grid(
-                row=row_idx, column=0, sticky="w", padx=4, pady=3
-            )
+            ttk.Label(frame, text=label).grid(row=row_idx, column=0, sticky="w", padx=4, pady=3)
 
-            alert_var = tk.StringVar(
-                value=str(self._settings.get_alert_minutes(event_type))
-            )
+            alert_var = tk.StringVar(value=str(self._settings.get_alert_minutes(event_type)))
             alert_vars[event_type] = alert_var
             ttk.Spinbox(
                 frame,
@@ -70,11 +66,25 @@ class SettingsWindow:
 
             enabled_var = tk.BooleanVar(value=self._settings.is_enabled(event_type))
             enabled_vars[event_type] = enabled_var
-            ttk.Checkbutton(frame, variable=enabled_var).grid(
-                row=row_idx, column=2, padx=4
-            )
+            ttk.Checkbutton(frame, variable=enabled_var).grid(row=row_idx, column=2, padx=4)
 
-        btn_row = len(ALL_EVENT_TYPES) + 1
+        # Background color row
+        bg_row = len(ALL_EVENT_TYPES) + 1
+        ttk.Label(frame, text="Background").grid(row=bg_row, column=0, sticky="w", padx=4, pady=3)
+        bg_var = tk.StringVar(value=self._settings.window_bg)
+        ttk.Entry(frame, textvariable=bg_var, width=10).grid(row=bg_row, column=1, padx=4)
+        preview_lbl = tk.Label(frame, width=3, bg=self._settings.window_bg)
+        preview_lbl.grid(row=bg_row, column=2, padx=4)
+
+        def _update_preview(*_):
+            try:
+                preview_lbl.configure(bg=bg_var.get())
+            except tk.TclError:
+                pass
+
+        bg_var.trace_add("write", _update_preview)
+
+        btn_row = len(ALL_EVENT_TYPES) + 2
         btn_frame = ttk.Frame(frame)
         btn_frame.grid(row=btn_row, column=0, columnspan=3, pady=(12, 0))
 
@@ -89,17 +99,24 @@ class SettingsWindow:
 
             new_enabled = {et: var.get() for et, var in enabled_vars.items()}
 
+            bg = bg_var.get().strip()
+            try:
+                win.winfo_rgb(bg)
+            except tk.TclError:
+                bg = self._settings.window_bg
+
             new_settings = Settings(
                 alert_minutes=new_alert,
                 enabled=new_enabled,
                 mute_all=self._settings.mute_all,
+                window_bg=bg,
+                window_x=self._settings.window_x,
+                window_y=self._settings.window_y,
             )
             self._on_save(new_settings)
             win.destroy()
 
         ttk.Button(btn_frame, text="Save", command=_save).pack(side=tk.LEFT, padx=6)
-        ttk.Button(btn_frame, text="Cancel", command=win.destroy).pack(
-            side=tk.LEFT, padx=6
-        )
+        ttk.Button(btn_frame, text="Cancel", command=win.destroy).pack(side=tk.LEFT, padx=6)
 
         self._window = win
