@@ -28,11 +28,11 @@ python3 -m d4_timer --quiet
 
 ## Features
 
-- **System tray icon** — crimson circle (gray when muted); left-click or double-click opens the countdown window
-- **Countdown window** — borderless, always-on-top; shows time remaining for each event; drag to reposition; right-click for context menu; Helltide shows active/countdown state
+- **System tray icon** — colored circle matching the window border; green when alerts are active, gray when muted or suppressed; left-click opens the countdown window
+- **Countdown window** — borderless, always-on-top; colored border mirrors the tray icon (green = live, gray = muted/suppressed); drag to reposition; right-click for context menu; Helltide shows active/countdown state
 - **Alerts** — configurable lead time per event type (1–240 min); audio beep + dismissable popup
-- **Mute** — tray and context menu checkmark item; icon turns gray; status shown in countdown window
-- **Game detection** — optional suppression of alerts when Diablo IV is not running (Settings → "Only alert while Diablo IV is running"); shows "GAME NOT RUNNING" status in countdown window when suppressed
+- **Mute** — tray and context menu checkmark item; icon and border turn gray
+- **Game detection** — optional suppression of alerts when Diablo IV is not running (Settings → "Only alert while Diablo IV is running"); icon and border turn gray when suppressed
 - **Settings** — per-event alert lead time, enabled toggle, window/alert background color, alert tone frequency (100–8000 Hz) with live test button, auto-dismiss, game detection toggle
 - **Persistence** — window positions, colors, and all settings saved to `%APPDATA%\d4-timer\settings.json`
 - **License** — GPL-3.0-or-later
