@@ -143,7 +143,12 @@ class MainWindow:
         if self._settings.window_x is not None and self._settings.window_y is not None:
             win.geometry(f"+{self._settings.window_x}+{self._settings.window_y}")
 
-        border_frame = tk.Frame(win, bg=WINDOW_BORDER_NORMAL)
+        initial_border = (
+            WINDOW_BORDER_SUPPRESSED
+            if (self._controller.is_muted() or self._controller.is_game_suppressed())
+            else WINDOW_BORDER_NORMAL
+        )
+        border_frame = tk.Frame(win, bg=initial_border)
         border_frame.pack(fill=tk.BOTH, expand=True)
         self._border_frame = border_frame
 
