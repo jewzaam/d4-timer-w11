@@ -3,7 +3,12 @@
 
 import json
 
-from d4_timer.config import DEFAULT_ALERT_MINUTES, DEFAULT_ENABLED, DEFAULT_WINDOW_BG
+from d4_timer.config import (
+    DEFAULT_ALERT_BG,
+    DEFAULT_ALERT_MINUTES,
+    DEFAULT_ENABLED,
+    DEFAULT_WINDOW_BG,
+)
 from d4_timer.settings import Settings, load_settings, save_settings
 
 
@@ -121,6 +126,42 @@ class TestSettingsWindowFields:
         loaded = load_settings(p)
         assert loaded.window_x is None
         assert loaded.window_y is None
+
+    def test_defaults_alert_fields(self):
+        s = Settings()
+        assert s.alert_bg == DEFAULT_ALERT_BG
+        assert s.alert_x is None
+        assert s.alert_y is None
+        assert s.alert_auto_dismiss is False
+
+    def test_defaults_settings_position(self):
+        s = Settings()
+        assert s.settings_x is None
+        assert s.settings_y is None
+
+    def test_saves_and_loads_alert_fields(self, tmp_path):
+        p = tmp_path / "settings.json"
+        s = Settings(alert_bg="#001100", alert_x=50, alert_y=75, alert_auto_dismiss=True)
+        save_settings(s, p)
+        loaded = load_settings(p)
+        assert loaded.alert_bg == "#001100"
+        assert loaded.alert_x == 50
+        assert loaded.alert_y == 75
+        assert loaded.alert_auto_dismiss is True
+
+    def test_saves_and_loads_settings_position(self, tmp_path):
+        p = tmp_path / "settings.json"
+        s = Settings(settings_x=300, settings_y=400)
+        save_settings(s, p)
+        loaded = load_settings(p)
+        assert loaded.settings_x == 300
+        assert loaded.settings_y == 400
+
+    def test_invalid_alert_bg_falls_back_to_default(self, tmp_path):
+        p = tmp_path / "settings.json"
+        p.write_text('{"alert_bg": "badcolor"}')
+        loaded = load_settings(p)
+        assert loaded.alert_bg == DEFAULT_ALERT_BG
 
 
 class TestSettingsHelpers:

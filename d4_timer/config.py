@@ -46,6 +46,7 @@ ALERT_WINDOW_TITLE = "D4 Event Alert"
 ALERT_AUTO_DISMISS_MS = 10_000  # 10 seconds
 MAIN_WINDOW_WIDTH = 320
 DEFAULT_WINDOW_BG = "#1a1a1a"
+DEFAULT_ALERT_BG = "#2d0000"
 
 # Helltide is active for 55 minutes after its start timestamp
 HELLTIDE_DURATION_SECONDS = 55 * 60

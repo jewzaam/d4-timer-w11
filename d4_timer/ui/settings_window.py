@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import colorchooser, ttk
 from typing import Callable
 
 from ..config import ALL_EVENT_TYPES, EVENT_DISPLAY_NAMES
@@ -14,10 +14,17 @@ from ..settings import Settings
 class SettingsWindow:
     """Modal Toplevel for editing per-event alert settings."""
 
-    def __init__(self, root: tk.Tk, settings: Settings, on_save: Callable[[Settings], None]):
+    def __init__(
+        self,
+        root: tk.Tk,
+        settings: Settings,
+        on_save: Callable[[Settings], None],
+        on_close_pos: Callable[[int, int], None] | None = None,
+    ):
         self._root = root
         self._settings = settings
         self._on_save = on_save
+        self._on_close_pos = on_close_pos
         self._window: tk.Toplevel | None = None
 
     def show(self) -> None:
@@ -26,11 +33,24 @@ class SettingsWindow:
             return
         self._build()
 
+    def _save_pos(self) -> None:
+        if self._on_close_pos and self._window and self._window.winfo_exists():
+            self._on_close_pos(self._window.winfo_x(), self._window.winfo_y())
+
     def _build(self) -> None:
         win = tk.Toplevel(self._root)
         win.title("D4 Timer — Settings")
         win.resizable(False, False)
         win.grab_set()  # Modal
+
+        if self._settings.settings_x is not None and self._settings.settings_y is not None:
+            win.geometry(f"+{self._settings.settings_x}+{self._settings.settings_y}")
+
+        def _on_wm_close() -> None:
+            self._save_pos()
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", _on_wm_close)
 
         frame = ttk.Frame(win, padding=16)
         frame.pack(fill=tk.BOTH, expand=True)
@@ -68,27 +88,41 @@ class SettingsWindow:
             enabled_vars[event_type] = enabled_var
             ttk.Checkbutton(frame, variable=enabled_var).grid(row=row_idx, column=2, padx=4)
 
-        # Background color row
-        bg_row = len(ALL_EVENT_TYPES) + 1
-        ttk.Label(frame, text="Background").grid(row=bg_row, column=0, sticky="w", padx=4, pady=3)
-        bg_var = tk.StringVar(value=self._settings.window_bg)
-        ttk.Entry(frame, textvariable=bg_var, width=10).grid(row=bg_row, column=1, padx=4)
-        preview_lbl = tk.Label(frame, width=3, bg=self._settings.window_bg)
-        preview_lbl.grid(row=bg_row, column=2, padx=4)
+        # Appearance section
+        sep_row = len(ALL_EVENT_TYPES) + 1
+        ttk.Separator(frame, orient="horizontal").grid(
+            row=sep_row, column=0, columnspan=3, sticky="ew", pady=(10, 6)
+        )
 
-        def _update_preview(*_):
-            try:
-                preview_lbl.configure(bg=bg_var.get())
-            except tk.TclError:
-                pass
+        window_bg_val = [self._settings.window_bg]
+        alert_bg_val = [self._settings.alert_bg]
 
-        bg_var.trace_add("write", _update_preview)
+        def _add_color_row(row: int, label: str, current: list[str]) -> None:
+            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=3)
+            preview = tk.Label(frame, width=4, bg=current[0])
+            preview.grid(row=row, column=1, padx=4, sticky="w")
 
-        btn_row = len(ALL_EVENT_TYPES) + 2
+            def _pick() -> None:
+                result = colorchooser.askcolor(color=current[0], title=f"Choose {label}")
+                if result[1]:
+                    current[0] = result[1]
+                    preview.configure(bg=result[1])  # type: ignore[call-arg]
+
+            ttk.Button(frame, text="Pick…", command=_pick, width=7).grid(row=row, column=2, padx=4)
+
+        _add_color_row(sep_row + 1, "Window bg", window_bg_val)
+        _add_color_row(sep_row + 2, "Alert bg", alert_bg_val)
+
+        auto_dismiss_var = tk.BooleanVar(value=self._settings.alert_auto_dismiss)
+        ttk.Label(frame, text="Auto-dismiss alerts").grid(
+            row=sep_row + 3, column=0, sticky="w", padx=4, pady=3
+        )
+        ttk.Checkbutton(frame, variable=auto_dismiss_var).grid(row=sep_row + 3, column=2, padx=4)
+
         btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=btn_row, column=0, columnspan=3, pady=(12, 0))
+        btn_frame.grid(row=sep_row + 4, column=0, columnspan=3, pady=(12, 0))
 
-        def _save():
+        def _save() -> None:
             new_alert = {}
             for et, var in alert_vars.items():
                 try:
@@ -99,24 +133,25 @@ class SettingsWindow:
 
             new_enabled = {et: var.get() for et, var in enabled_vars.items()}
 
-            bg = bg_var.get().strip()
-            try:
-                win.winfo_rgb(bg)
-            except tk.TclError:
-                bg = self._settings.window_bg
-
             new_settings = Settings(
                 alert_minutes=new_alert,
                 enabled=new_enabled,
                 mute_all=self._settings.mute_all,
-                window_bg=bg,
+                window_bg=window_bg_val[0],
                 window_x=self._settings.window_x,
                 window_y=self._settings.window_y,
+                alert_bg=alert_bg_val[0],
+                alert_x=self._settings.alert_x,
+                alert_y=self._settings.alert_y,
+                settings_x=self._settings.settings_x,
+                settings_y=self._settings.settings_y,
+                alert_auto_dismiss=auto_dismiss_var.get(),
             )
+            self._save_pos()
             self._on_save(new_settings)
             win.destroy()
 
         ttk.Button(btn_frame, text="Save", command=_save).pack(side=tk.LEFT, padx=6)
-        ttk.Button(btn_frame, text="Cancel", command=win.destroy).pack(side=tk.LEFT, padx=6)
+        ttk.Button(btn_frame, text="Cancel", command=_on_wm_close).pack(side=tk.LEFT, padx=6)
 
         self._window = win
