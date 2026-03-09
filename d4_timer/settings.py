@@ -11,13 +11,18 @@ from pathlib import Path
 from typing import Dict
 
 from .config import (
-    DEFAULT_ALERT_MINUTES,
+    ALL_EVENT_TYPES,
     DEFAULT_ALERT_BG,
+    DEFAULT_ALERT_FREQUENCY_HZ,
+    DEFAULT_ALERT_MINUTES,
     DEFAULT_ENABLED,
     DEFAULT_WINDOW_BG,
+    MAX_ALERT_FREQUENCY_HZ,
+    MAX_ALERT_MINUTES,
+    MIN_ALERT_FREQUENCY_HZ,
+    MIN_ALERT_MINUTES,
     SETTINGS_DIR_NAME,
     SETTINGS_FILE_NAME,
-    ALL_EVENT_TYPES,
 )
 
 log = logging.getLogger(__name__)
@@ -42,6 +47,7 @@ class Settings:
     settings_x: int | None = None
     settings_y: int | None = None
     alert_auto_dismiss: bool = False
+    alert_frequency_hz: int = DEFAULT_ALERT_FREQUENCY_HZ
 
     def get_alert_minutes(self, event_type: str) -> int:
         return self.alert_minutes.get(event_type, DEFAULT_ALERT_MINUTES.get(event_type, 5))
@@ -65,7 +71,7 @@ def load_settings(path: Path | None = None) -> Settings:
     raw_alert = data.get("alert_minutes") or {}
     for et in ALL_EVENT_TYPES:
         val = raw_alert.get(et)
-        if isinstance(val, int) and val > 0:
+        if isinstance(val, int) and MIN_ALERT_MINUTES <= val <= MAX_ALERT_MINUTES:
             alert_minutes[et] = val
 
     enabled = dict(DEFAULT_ENABLED)
@@ -109,6 +115,14 @@ def load_settings(path: Path | None = None) -> Settings:
 
     alert_auto_dismiss = bool(data.get("alert_auto_dismiss", False))
 
+    raw_freq = data.get("alert_frequency_hz", DEFAULT_ALERT_FREQUENCY_HZ)
+    alert_frequency_hz = (
+        int(raw_freq)
+        if isinstance(raw_freq, (int, float))
+        and MIN_ALERT_FREQUENCY_HZ <= raw_freq <= MAX_ALERT_FREQUENCY_HZ
+        else DEFAULT_ALERT_FREQUENCY_HZ
+    )
+
     return Settings(
         alert_minutes=alert_minutes,
         enabled=enabled,
@@ -122,6 +136,7 @@ def load_settings(path: Path | None = None) -> Settings:
         settings_x=settings_x,
         settings_y=settings_y,
         alert_auto_dismiss=alert_auto_dismiss,
+        alert_frequency_hz=alert_frequency_hz,
     )
 
 
@@ -143,6 +158,7 @@ def save_settings(settings: Settings, path: Path | None = None) -> None:
         "settings_x": settings.settings_x,
         "settings_y": settings.settings_y,
         "alert_auto_dismiss": settings.alert_auto_dismiss,
+        "alert_frequency_hz": settings.alert_frequency_hz,
     }
 
     tmp = target.with_suffix(".tmp")

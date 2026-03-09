@@ -7,7 +7,15 @@ import tkinter as tk
 from tkinter import colorchooser, ttk
 from typing import Callable
 
-from ..config import ALL_EVENT_TYPES, EVENT_DISPLAY_NAMES
+from ..audio import play_alert
+from ..config import (
+    ALL_EVENT_TYPES,
+    EVENT_DISPLAY_NAMES,
+    MAX_ALERT_FREQUENCY_HZ,
+    MAX_ALERT_MINUTES,
+    MIN_ALERT_FREQUENCY_HZ,
+    MIN_ALERT_MINUTES,
+)
 from ..settings import Settings
 
 
@@ -42,6 +50,7 @@ class SettingsWindow:
         win.title("D4 Timer — Settings")
         win.resizable(False, False)
         win.grab_set()  # Modal
+        win.wm_attributes("-topmost", True)
 
         if self._settings.settings_x is not None and self._settings.settings_y is not None:
             win.geometry(f"+{self._settings.settings_x}+{self._settings.settings_y}")
@@ -78,8 +87,8 @@ class SettingsWindow:
             alert_vars[event_type] = alert_var
             ttk.Spinbox(
                 frame,
-                from_=1,
-                to=60,
+                from_=MIN_ALERT_MINUTES,
+                to=MAX_ALERT_MINUTES,
                 width=6,
                 textvariable=alert_var,
             ).grid(row=row_idx, column=1, padx=4)
@@ -113,25 +122,56 @@ class SettingsWindow:
         _add_color_row(sep_row + 1, "Window bg", window_bg_val)
         _add_color_row(sep_row + 2, "Alert bg", alert_bg_val)
 
-        auto_dismiss_var = tk.BooleanVar(value=self._settings.alert_auto_dismiss)
-        ttk.Label(frame, text="Auto-dismiss alerts").grid(
+        freq_var = tk.StringVar(value=str(self._settings.alert_frequency_hz))
+        ttk.Label(frame, text="Alert frequency (Hz)").grid(
             row=sep_row + 3, column=0, sticky="w", padx=4, pady=3
         )
-        ttk.Checkbutton(frame, variable=auto_dismiss_var).grid(row=sep_row + 3, column=2, padx=4)
+        ttk.Spinbox(
+            frame,
+            from_=MIN_ALERT_FREQUENCY_HZ,
+            to=MAX_ALERT_FREQUENCY_HZ,
+            increment=10,
+            width=6,
+            textvariable=freq_var,
+        ).grid(row=sep_row + 3, column=1, padx=4)
+
+        def _test_freq() -> None:
+            try:
+                hz = int(freq_var.get())
+                hz = max(MIN_ALERT_FREQUENCY_HZ, min(MAX_ALERT_FREQUENCY_HZ, hz))
+            except ValueError:
+                hz = self._settings.alert_frequency_hz
+            play_alert(hz)
+
+        ttk.Button(frame, text="Test", command=_test_freq, width=7).grid(
+            row=sep_row + 3, column=2, padx=4
+        )
+
+        auto_dismiss_var = tk.BooleanVar(value=self._settings.alert_auto_dismiss)
+        ttk.Label(frame, text="Auto-dismiss alerts").grid(
+            row=sep_row + 4, column=0, sticky="w", padx=4, pady=3
+        )
+        ttk.Checkbutton(frame, variable=auto_dismiss_var).grid(row=sep_row + 4, column=2, padx=4)
 
         btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=sep_row + 4, column=0, columnspan=3, pady=(12, 0))
+        btn_frame.grid(row=sep_row + 5, column=0, columnspan=3, pady=(12, 0))
 
         def _save() -> None:
             new_alert = {}
             for et, var in alert_vars.items():
                 try:
                     val = int(var.get())
-                    new_alert[et] = max(1, min(60, val))
+                    new_alert[et] = max(MIN_ALERT_MINUTES, min(MAX_ALERT_MINUTES, val))
                 except ValueError:
                     new_alert[et] = self._settings.get_alert_minutes(et)
 
             new_enabled = {et: var.get() for et, var in enabled_vars.items()}
+
+            try:
+                freq_hz = int(freq_var.get())
+                freq_hz = max(MIN_ALERT_FREQUENCY_HZ, min(MAX_ALERT_FREQUENCY_HZ, freq_hz))
+            except ValueError:
+                freq_hz = self._settings.alert_frequency_hz
 
             new_settings = Settings(
                 alert_minutes=new_alert,
@@ -146,6 +186,7 @@ class SettingsWindow:
                 settings_x=self._settings.settings_x,
                 settings_y=self._settings.settings_y,
                 alert_auto_dismiss=auto_dismiss_var.get(),
+                alert_frequency_hz=freq_hz,
             )
             self._save_pos()
             self._on_save(new_settings)

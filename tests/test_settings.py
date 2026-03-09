@@ -5,6 +5,7 @@ import json
 
 from d4_timer.config import (
     DEFAULT_ALERT_BG,
+    DEFAULT_ALERT_FREQUENCY_HZ,
     DEFAULT_ALERT_MINUTES,
     DEFAULT_ENABLED,
     DEFAULT_WINDOW_BG,
@@ -162,6 +163,29 @@ class TestSettingsWindowFields:
         p.write_text('{"alert_bg": "badcolor"}')
         loaded = load_settings(p)
         assert loaded.alert_bg == DEFAULT_ALERT_BG
+
+    def test_defaults_alert_frequency_hz(self):
+        s = Settings()
+        assert s.alert_frequency_hz == DEFAULT_ALERT_FREQUENCY_HZ
+
+    def test_saves_and_loads_alert_frequency_hz(self, tmp_path):
+        p = tmp_path / "settings.json"
+        s = Settings(alert_frequency_hz=440)
+        save_settings(s, p)
+        loaded = load_settings(p)
+        assert loaded.alert_frequency_hz == 440
+
+    def test_invalid_freq_falls_back_to_default(self, tmp_path):
+        p = tmp_path / "settings.json"
+        p.write_text('{"alert_frequency_hz": 99999}')
+        loaded = load_settings(p)
+        assert loaded.alert_frequency_hz == DEFAULT_ALERT_FREQUENCY_HZ
+
+    def test_freq_boundary_valid(self, tmp_path):
+        p = tmp_path / "settings.json"
+        p.write_text('{"alert_frequency_hz": 100}')
+        loaded = load_settings(p)
+        assert loaded.alert_frequency_hz == 100
 
 
 class TestSettingsHelpers:
