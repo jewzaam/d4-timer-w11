@@ -30,7 +30,7 @@ class TestGenerateAlertSound:
         mock_sound = MagicMock()
         mock_pygame = _make_mock_pygame(mock_sound)
 
-        with patch.dict("sys.modules", {"pygame": mock_pygame, "pygame.mixer": mock_pygame.mixer}):
+        with patch.object(audio_module, "pygame", mock_pygame):
             audio_module._initialized = True
             result = generate_alert_sound()
 
@@ -40,7 +40,7 @@ class TestGenerateAlertSound:
         mock_sound = MagicMock()
         mock_pygame = _make_mock_pygame(mock_sound)
 
-        with patch.dict("sys.modules", {"pygame": mock_pygame, "pygame.mixer": mock_pygame.mixer}):
+        with patch.object(audio_module, "pygame", mock_pygame):
             audio_module._initialized = True
             first = generate_alert_sound()
             second = generate_alert_sound()
@@ -58,7 +58,7 @@ class TestGenerateAlertSound:
         mock_pygame = _make_mock_pygame()
         mock_pygame.mixer.Sound.side_effect = Exception("boom")
 
-        with patch.dict("sys.modules", {"pygame": mock_pygame, "pygame.mixer": mock_pygame.mixer}):
+        with patch.object(audio_module, "pygame", mock_pygame):
             audio_module._initialized = True
             result = generate_alert_sound()
 
