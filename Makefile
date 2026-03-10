@@ -1,8 +1,23 @@
-.PHONY: default install install-dev install-no-deps uninstall clean format lint typecheck test test-verbose coverage run run-debug
+.PHONY: default help install install-dev install-no-deps uninstall clean format lint typecheck test test-verbose coverage run run-debug
 
 PYTHON := python3
 
 default: format lint typecheck test coverage
+
+help:
+	@echo "Targets:"
+	@echo "  install        Install package"
+	@echo "  install-dev    Install package and dev dependencies"
+	@echo "  uninstall      Uninstall package"
+	@echo "  clean          Remove build artifacts and caches"
+	@echo "  format         Run black formatter"
+	@echo "  lint           Run flake8"
+	@echo "  typecheck      Run mypy"
+	@echo "  test           Run tests"
+	@echo "  test-verbose   Run tests with verbose output"
+	@echo "  coverage       Run tests with coverage report"
+	@echo "  run            Start the app"
+	@echo "  run-debug      Start the app with debug logging"
 
 install:
 	$(PYTHON) -m pip install .
