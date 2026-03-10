@@ -41,7 +41,7 @@ def _is_process_running(name: str) -> bool:
             capture_output=True,
             text=True,
             timeout=3,
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=0x08000000,  # CREATE_NO_WINDOW (Windows-only)
         ).stdout
         return name.lower() in out.lower()
     except Exception:
