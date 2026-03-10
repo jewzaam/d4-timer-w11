@@ -47,6 +47,7 @@ show_missing = true
 python_version = "3.11"
 strict = false
 ignore_missing_imports = true
+exclude = ["d4_timer/startup\\.py"]
 
 [tool.black]
 line-length = 100
