@@ -10,7 +10,7 @@ System tray app that alerts you ahead of World Boss, Helltide, and Legion events
 ## Install
 
 ```powershell
-pip install git+https://github.com/jewzaam/d4-timer-w11
+python -m pip install git+https://github.com/jewzaam/d4-timer-w11
 ```
 
 ## Run
@@ -23,19 +23,7 @@ pythonw -m d4_timer
 
 ## Auto-start on login (optional)
 
-Run this once in PowerShell to register D4 Timer as a startup app. It will appear in Task Manager → Startup Apps and can be disabled there at any time.
-
-```powershell
-$pythonw = (Get-Command python).Source -replace 'python\.exe','pythonw.exe'
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" `
-    -Name "D4Timer" -Value "`"$pythonw`" -m d4_timer"
-```
-
-To remove it:
-
-```powershell
-Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "D4Timer"
-```
+Open Settings from the tray menu and check **Start on login**. The app registers itself under `HKCU\...\Run` and will appear in Task Manager → Startup Apps where it can be disabled at any time.
 
 ## Development
 
