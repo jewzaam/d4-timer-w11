@@ -7,20 +7,47 @@ System tray app that alerts you ahead of World Boss, Helltide, and Legion events
 - Windows 11
 - Python 3.11+
 
-## Setup
+## Install
 
-```bash
-make install-dev
+```powershell
+pip install git+https://github.com/jewzaam/d4-timer-w11
 ```
 
-## Usage
+## Run
+
+```powershell
+pythonw -m d4_timer
+```
+
+> Use `pythonw` (not `python`) to avoid a console window opening alongside the tray icon.
+
+## Auto-start on login (optional)
+
+Run this once in PowerShell to register D4 Timer as a startup app. It will appear in Task Manager → Startup Apps and can be disabled there at any time.
+
+```powershell
+$pythonw = (Get-Command python).Source -replace 'python\.exe','pythonw.exe'
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" `
+    -Name "D4Timer" -Value "`"$pythonw`" -m d4_timer"
+```
+
+To remove it:
+
+```powershell
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "D4Timer"
+```
+
+## Development
 
 ```bash
+git clone https://github.com/jewzaam/d4-timer-w11
+cd d4-timer-w11
+make install-dev
 make run          # Start normally
 make run-debug    # Start with debug logging
 ```
 
-To suppress audio (popups still appear), run directly:
+To suppress audio (popups still appear):
 
 ```bash
 python3 -m d4_timer --quiet
@@ -36,18 +63,6 @@ python3 -m d4_timer --quiet
 - **Settings** — per-event alert lead time, enabled toggle, window/alert background color, alert tone frequency (100–8000 Hz) with live test button, auto-dismiss, game detection toggle
 - **Persistence** — window positions, colors, and all settings saved to `%APPDATA%\d4-timer\settings.json`
 - **License** — GPL-3.0-or-later
-
-## System Startup (optional)
-
-To launch on login with no console window, create a Task Scheduler entry:
-
-1. Open **Task Scheduler** → **Create Task**
-2. **General** tab: check "Run only when user is logged on"
-3. **Triggers** tab: New → "At log on"
-4. **Actions** tab: New → Start a program
-   - Program: `C:\Users\<you>\AppData\Local\Python\pythoncore-3.14-64\pythonw.exe`
-   - Arguments: `-m d4_timer`
-   - Start in: path to the project directory
 
 ## Development
 

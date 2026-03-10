@@ -37,7 +37,7 @@ addopts = "-v"
 
 [tool.coverage.run]
 source = ["d4_timer"]
-omit = ["d4_timer/ui/*", "d4_timer/tray.py", "d4_timer/controller.py", "d4_timer/__main__.py"]
+omit = ["d4_timer/ui/*", "d4_timer/tray.py", "d4_timer/controller.py", "d4_timer/__main__.py", "d4_timer/startup.py"]
 
 [tool.coverage.report]
 fail_under = 80

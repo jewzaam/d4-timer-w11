@@ -198,6 +198,17 @@ class TestSettingsWindowFields:
         loaded = load_settings(p)
         assert loaded.suppress_when_not_gaming is True
 
+    def test_run_on_startup_default_false(self):
+        s = Settings()
+        assert s.run_on_startup is False
+
+    def test_saves_and_loads_run_on_startup(self, tmp_path):
+        p = tmp_path / "settings.json"
+        s = Settings(run_on_startup=True)
+        save_settings(s, p)
+        loaded = load_settings(p)
+        assert loaded.run_on_startup is True
+
 
 class TestSettingsHelpers:
     def test_get_alert_minutes_present(self):

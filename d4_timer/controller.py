@@ -24,6 +24,7 @@ from .config import (
 )
 from .scheduler import AlertScheduler
 from .settings import Settings, load_settings, save_settings
+from .startup import set_run_on_startup
 from .tray import create_tray_icon, generate_icon_image
 from .ui.alert_window import AlertWindow
 from .ui.main_window import MainWindow
@@ -93,6 +94,7 @@ class AppController:
             if new_settings.alert_minutes != old_alert:
                 self._scheduler.reset_fired()
             save_settings(self._settings)
+            set_run_on_startup(new_settings.run_on_startup)
             self._main_window.apply_bg(new_settings.window_bg)
             for et in ALL_EVENT_TYPES:
                 if old_enabled.get(et) != new_settings.enabled.get(et):
@@ -158,6 +160,7 @@ class AppController:
 
     def run(self) -> None:
         """Start all threads and enter the tkinter mainloop."""
+        set_run_on_startup(self._settings.run_on_startup)  # keep registry in sync with settings
         threading.Thread(target=generate_alert_sound, daemon=True, name="audio-prewarm").start()
 
         def _schedule_toggle(et: str) -> None:

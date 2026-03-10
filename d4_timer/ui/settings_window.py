@@ -159,8 +159,14 @@ class SettingsWindow:
         )
         ttk.Checkbutton(frame, variable=suppress_var).grid(row=sep_row + 5, column=2, padx=4)
 
+        startup_var = tk.BooleanVar(value=self._settings.run_on_startup)
+        ttk.Label(frame, text="Start on login").grid(
+            row=sep_row + 6, column=0, sticky="w", padx=4, pady=3
+        )
+        ttk.Checkbutton(frame, variable=startup_var).grid(row=sep_row + 6, column=2, padx=4)
+
         btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=sep_row + 6, column=0, columnspan=3, pady=(12, 0))
+        btn_frame.grid(row=sep_row + 7, column=0, columnspan=3, pady=(12, 0))
 
         def _save() -> None:
             new_alert = {}
@@ -194,6 +200,7 @@ class SettingsWindow:
                 alert_auto_dismiss=auto_dismiss_var.get(),
                 alert_frequency_hz=freq_hz,
                 suppress_when_not_gaming=suppress_var.get(),
+                run_on_startup=startup_var.get(),
             )
             self._save_pos()
             self._on_save(new_settings)
