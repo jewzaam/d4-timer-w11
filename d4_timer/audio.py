@@ -6,6 +6,7 @@ from __future__ import annotations
 import array
 import logging
 import math
+import pygame
 from typing import Any, Optional
 
 from .config import (
@@ -28,8 +29,6 @@ def _init_pygame() -> bool:
     if _initialized:
         return True
     try:
-        import pygame
-
         pygame.mixer.pre_init(
             frequency=AUDIO_SAMPLE_RATE,
             size=-16,
@@ -54,8 +53,6 @@ def generate_alert_sound(frequency_hz: int = AUDIO_FREQUENCY_HZ) -> Optional[Any
         return None
 
     try:
-        import pygame
-
         # Use actual post-init settings — pre_init values are hints, not guarantees
         freq, _size, channels = pygame.mixer.get_init()
         num_samples = int(freq * AUDIO_DURATION_MS / 1000)
