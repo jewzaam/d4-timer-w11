@@ -6,8 +6,9 @@ from __future__ import annotations
 import array
 import logging
 import math
+import threading
 import pygame
-from typing import Any, Optional
+from typing import Any
 
 from .config import (
     AUDIO_DURATION_MS,
@@ -18,36 +19,36 @@ from .config import (
 
 log = logging.getLogger(__name__)
 
-_sound_cache: Optional[Any] = None
+_sound_cache: Any | None = None
 _cached_frequency: int = 0
 _initialized: bool = False
+_cache_lock = threading.Lock()
 
 
 def _init_pygame() -> bool:
     """Initialize pygame mixer. Returns True on success."""
     global _initialized
-    if _initialized:
+    if _initialized:  # fast path without lock
         return True
-    try:
-        pygame.mixer.pre_init(
-            frequency=AUDIO_SAMPLE_RATE,
-            size=-16,
-            channels=1,
-            buffer=512,
-        )
-        pygame.mixer.init()
-        _initialized = True
-        return True
-    except Exception:
-        log.exception("Failed to initialize pygame.mixer")
-        return False
+    with _cache_lock:
+        if _initialized:  # double-check under lock
+            return True
+        try:
+            pygame.mixer.pre_init(frequency=AUDIO_SAMPLE_RATE, size=-16, channels=1, buffer=512)
+            pygame.mixer.init()
+            _initialized = True
+            return True
+        except Exception:
+            log.exception("Failed to initialize pygame.mixer")
+            return False
 
 
-def generate_alert_sound(frequency_hz: int = AUDIO_FREQUENCY_HZ) -> Optional[Any]:
+def generate_alert_sound(frequency_hz: int = AUDIO_FREQUENCY_HZ) -> Any | None:
     """Build and cache a pygame Sound object (sine wave). Returns None on failure."""
     global _sound_cache, _cached_frequency
-    if _sound_cache is not None and _cached_frequency == frequency_hz:
-        return _sound_cache
+    with _cache_lock:
+        if _sound_cache is not None and _cached_frequency == frequency_hz:
+            return _sound_cache
 
     if not _init_pygame():
         return None
@@ -69,8 +70,9 @@ def generate_alert_sound(frequency_hz: int = AUDIO_FREQUENCY_HZ) -> Optional[Any
                 buf[i * channels + ch] = val
 
         sound = pygame.mixer.Sound(buffer=buf)
-        _sound_cache = sound
-        _cached_frequency = frequency_hz
+        with _cache_lock:
+            _sound_cache = sound
+            _cached_frequency = frequency_hz
         return sound
     except Exception:
         log.exception("Failed to generate alert sound")
@@ -91,6 +93,7 @@ def play_alert(frequency_hz: int = AUDIO_FREQUENCY_HZ) -> None:
 def reset_cache() -> None:
     """Reset cached sound and init state — for testing."""
     global _sound_cache, _cached_frequency, _initialized
-    _sound_cache = None
-    _cached_frequency = 0
-    _initialized = False
+    with _cache_lock:
+        _sound_cache = None
+        _cached_frequency = 0
+        _initialized = False

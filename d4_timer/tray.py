@@ -36,6 +36,7 @@ def generate_icon_image(muted: bool = False) -> Image.Image:
 
 def create_tray_icon(
     on_click: Callable,
+    on_hide: Callable,
     on_quit: Callable,
     on_toggle_mute: Callable,
     on_settings: Callable,
@@ -60,6 +61,7 @@ def create_tray_icon(
 
     menu = pystray.Menu(
         pystray.MenuItem("Open", on_click, default=True),
+        pystray.MenuItem("Hide", on_hide),
         pystray.MenuItem("Mute", on_toggle_mute, checked=lambda item: is_muted()),
         pystray.MenuItem("Settings", on_settings),
         pystray.MenuItem("Test Alert", on_test_alert),

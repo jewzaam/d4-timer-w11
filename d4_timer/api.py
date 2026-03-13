@@ -6,7 +6,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 import requests  # type: ignore[import-untyped]
 
@@ -27,8 +26,8 @@ class EventData:
 
     event_type: str
     timestamp: int  # Unix epoch seconds
-    boss_name: Optional[str] = None  # World Boss only
-    zone_name: Optional[str] = None  # World Boss only
+    boss_name: str | None = None  # World Boss only
+    zone_name: str | None = None  # World Boss only
 
 
 @dataclass
@@ -42,7 +41,7 @@ class Schedule:
     def by_type(self, event_type: str) -> list[EventData]:
         return getattr(self, event_type, [])
 
-    def next_event(self, event_type: str, now: float | None = None) -> Optional[EventData]:
+    def next_event(self, event_type: str, now: float | None = None) -> EventData | None:
         """Return the first future event for the given type, skipping past events."""
         if now is None:
             now = time.time()
@@ -68,12 +67,16 @@ def parse_schedule(data: dict) -> Schedule:
         ts = item.get("timestamp")
         if ts is None:
             continue
+        try:
+            ts_int = int(ts)
+        except (ValueError, TypeError):
+            continue
         zones = item.get("zone") or []
-        zone_name = zones[0].get("name") if zones else None
+        zone_name = zones[0].get("name") if zones and isinstance(zones[0], dict) else None
         schedule.world_boss.append(
             EventData(
                 event_type=EVENT_WORLD_BOSS,
-                timestamp=int(ts),
+                timestamp=ts_int,
                 boss_name=item.get("boss"),
                 zone_name=zone_name,
             )
@@ -84,10 +87,14 @@ def parse_schedule(data: dict) -> Schedule:
         ts = item.get("timestamp")
         if ts is None:
             continue
+        try:
+            ts_int = int(ts)
+        except (ValueError, TypeError):
+            continue
         schedule.helltide.append(
             EventData(
                 event_type=EVENT_HELLTIDE,
-                timestamp=int(ts),
+                timestamp=ts_int,
             )
         )
 
@@ -96,10 +103,14 @@ def parse_schedule(data: dict) -> Schedule:
         ts = item.get("timestamp")
         if ts is None:
             continue
+        try:
+            ts_int = int(ts)
+        except (ValueError, TypeError):
+            continue
         schedule.legion.append(
             EventData(
                 event_type=EVENT_LEGION,
-                timestamp=int(ts),
+                timestamp=ts_int,
             )
         )
 

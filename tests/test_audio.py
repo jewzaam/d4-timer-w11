@@ -90,3 +90,30 @@ class TestResetCache:
         reset_cache()
         assert audio_module._sound_cache is None
         assert audio_module._initialized is False
+
+
+class TestInitPygame:
+    def test_success_sets_initialized(self):
+        mock_pygame = MagicMock()
+        with patch.object(audio_module, "pygame", mock_pygame):
+            result = audio_module._init_pygame()
+        assert result is True
+        assert audio_module._initialized is True
+        mock_pygame.mixer.pre_init.assert_called_once()
+        mock_pygame.mixer.init.assert_called_once()
+
+    def test_failure_returns_false(self):
+        mock_pygame = MagicMock()
+        mock_pygame.mixer.init.side_effect = Exception("no audio device")
+        with patch.object(audio_module, "pygame", mock_pygame):
+            result = audio_module._init_pygame()
+        assert result is False
+        assert audio_module._initialized is False
+
+    def test_returns_true_immediately_if_already_initialized(self):
+        audio_module._initialized = True
+        mock_pygame = MagicMock()
+        with patch.object(audio_module, "pygame", mock_pygame):
+            result = audio_module._init_pygame()
+        assert result is True
+        mock_pygame.mixer.init.assert_not_called()

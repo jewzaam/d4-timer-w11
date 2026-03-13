@@ -8,7 +8,6 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict
 
 from .config import (
     ALL_EVENT_TYPES,
@@ -35,8 +34,8 @@ def _settings_path() -> Path:
 
 @dataclass
 class Settings:
-    alert_minutes: Dict[str, int] = field(default_factory=lambda: dict(DEFAULT_ALERT_MINUTES))
-    enabled: Dict[str, bool] = field(default_factory=lambda: dict(DEFAULT_ENABLED))
+    alert_minutes: dict[str, int] = field(default_factory=lambda: dict(DEFAULT_ALERT_MINUTES))
+    enabled: dict[str, bool] = field(default_factory=lambda: dict(DEFAULT_ENABLED))
     mute_all: bool = False
     window_bg: str = DEFAULT_WINDOW_BG
     window_x: int | None = None

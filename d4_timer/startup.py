@@ -15,7 +15,13 @@ _REG_VALUE_NAME = "D4Timer"
 
 
 def _startup_cmd() -> str:
-    pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+    from pathlib import Path
+
+    exe = Path(sys.executable)
+    pythonw = exe.parent / "pythonw.exe"
+    if not pythonw.exists():
+        log.warning("pythonw.exe not found at %s; startup may open a console window", pythonw)
+        pythonw = exe
     return f'"{pythonw}" -m d4_timer'
 
 

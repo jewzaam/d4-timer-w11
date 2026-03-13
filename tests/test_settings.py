@@ -2,6 +2,8 @@
 """Tests for d4_timer.settings module."""
 
 import json
+from pathlib import Path
+from unittest.mock import patch
 
 from d4_timer.config import (
     DEFAULT_ALERT_BG,
@@ -9,8 +11,10 @@ from d4_timer.config import (
     DEFAULT_ALERT_MINUTES,
     DEFAULT_ENABLED,
     DEFAULT_WINDOW_BG,
+    SETTINGS_DIR_NAME,
+    SETTINGS_FILE_NAME,
 )
-from d4_timer.settings import Settings, load_settings, save_settings
+from d4_timer.settings import Settings, _settings_path, load_settings, save_settings
 
 
 class TestLoadSettings:
@@ -94,6 +98,17 @@ class TestSaveSettings:
         assert "alert_minutes" in data
         assert "enabled" in data
         assert "mute_all" in data
+
+    def test_atomic_write_failure_leaves_original_untouched(self, tmp_path):
+        p = tmp_path / "settings.json"
+        original = '{"mute_all": true}'
+        p.write_text(original)
+
+        with patch("pathlib.Path.write_text", side_effect=OSError("disk full")):
+            save_settings(Settings(), p)
+
+        assert p.read_text() == original
+        assert not p.with_suffix(".tmp").exists()
 
 
 class TestSettingsWindowFields:
@@ -208,6 +223,18 @@ class TestSettingsWindowFields:
         save_settings(s, p)
         loaded = load_settings(p)
         assert loaded.run_on_startup is True
+
+
+class TestSettingsPath:
+    def test_uses_appdata_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("APPDATA", str(tmp_path))
+        p = _settings_path()
+        assert p == tmp_path / SETTINGS_DIR_NAME / SETTINGS_FILE_NAME
+
+    def test_falls_back_to_home_without_appdata(self, monkeypatch):
+        monkeypatch.delenv("APPDATA", raising=False)
+        p = _settings_path()
+        assert p == Path.home() / SETTINGS_DIR_NAME / SETTINGS_FILE_NAME
 
 
 class TestSettingsHelpers:
