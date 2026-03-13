@@ -12,7 +12,7 @@ from ..config import (
     WINDOW_BORDER_NORMAL,
     WINDOW_BORDER_SUPPRESSED,
 )
-from ..settings import Settings, save_settings
+from ..settings import Settings
 
 if TYPE_CHECKING:
     from ..controller import AppController
@@ -43,9 +43,7 @@ class MainWindow:
 
     def hide(self) -> None:
         if self._window and self._window.winfo_exists():
-            self._controller._settings.window_x = self._window.winfo_x()
-            self._controller._settings.window_y = self._window.winfo_y()
-            save_settings(self._controller._settings)
+            self._controller.save_window_pos(self._window.winfo_x(), self._window.winfo_y())
             self._window.withdraw()
 
     def update_countdowns(
@@ -129,7 +127,7 @@ class MainWindow:
             )
         menu.add_separator()
         menu.add_command(label="Hide", command=self.hide)
-        menu.add_command(label="Quit", command=self._controller._quit)
+        menu.add_command(label="Quit", command=self._controller.quit)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -209,6 +207,7 @@ class MainWindow:
         for widget in [border_frame, frame, *self._bg_widgets]:
             widget.bind("<Button-1>", _start_drag)
             widget.bind("<B1-Motion>", _do_drag)
+            widget.bind("<Double-Button-1>", lambda _e: self.hide())
             widget.bind("<Button-3>", self._show_context_menu)
 
         win.resizable(False, False)

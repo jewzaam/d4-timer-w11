@@ -91,6 +91,18 @@ class TestParseSchedule:
         schedule = parse_schedule(data)
         assert isinstance(schedule.helltide[0].timestamp, int)
 
+    def test_skips_helltide_entries_missing_timestamp(self):
+        data = {"helltide": [{}, {"timestamp": 1710001800}]}
+        schedule = parse_schedule(data)
+        assert len(schedule.helltide) == 1
+        assert schedule.helltide[0].timestamp == 1710001800
+
+    def test_skips_legion_entries_missing_timestamp(self):
+        data = {"legion": [{}, {"timestamp": 1710000900}]}
+        schedule = parse_schedule(data)
+        assert len(schedule.legion) == 1
+        assert schedule.legion[0].timestamp == 1710000900
+
 
 class TestFetchSchedule:
     def test_returns_parsed_json(self, sample_schedule_data):

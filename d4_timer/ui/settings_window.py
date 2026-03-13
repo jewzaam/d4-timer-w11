@@ -35,6 +35,10 @@ class SettingsWindow:
         self._on_close_pos = on_close_pos
         self._window: tk.Toplevel | None = None
 
+    def update_settings(self, settings: Settings) -> None:
+        """Update the settings reference used when the window is next built."""
+        self._settings = settings
+
     def show(self) -> None:
         if self._window and self._window.winfo_exists():
             self._window.lift()

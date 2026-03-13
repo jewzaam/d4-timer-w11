@@ -13,6 +13,7 @@ from .api import EventData, Schedule, fetch_schedule, parse_schedule
 from .audio import generate_alert_sound, play_alert
 from .config import (
     ALL_EVENT_TYPES,
+    API_BACKOFF_BASE_SECONDS,
     API_BACKOFF_MAX_SECONDS,
     API_POLL_INTERVAL_SECONDS,
     DIABLO_PROCESS_NAME,
@@ -31,6 +32,19 @@ from .ui.main_window import MainWindow
 from .ui.settings_window import SettingsWindow
 
 log = logging.getLogger(__name__)
+
+
+def _is_game_suppressed(suppress_setting: bool, game_running: bool | None) -> bool:
+    """True only when suppression is enabled and game is confirmed not running.
+
+    None (unknown state on startup) is treated as not suppressed.
+    """
+    return suppress_setting and game_running is False
+
+
+def _next_error_backoff(current: float, max_val: float) -> float:
+    """Double the error retry interval up to max_val."""
+    return min(current * 2, max_val)
 
 
 def _is_process_running(name: str) -> bool:
@@ -110,11 +124,20 @@ class AppController:
             self._settings_window = SettingsWindow(
                 self._root, self._settings, _on_save, _on_settings_pos
             )
-        self._settings_window._settings = self._settings
+        self._settings_window.update_settings(self._settings)
         self._settings_window.show()
 
     def show_main_window(self) -> None:
         self._main_window.show()
+
+    def hide_main_window(self) -> None:
+        self._main_window.hide()
+
+    def toggle_main_window(self) -> None:
+        if self._main_window.is_visible:
+            self._main_window.hide()
+        else:
+            self._main_window.show()
 
     def test_alert(self) -> None:
         """Play audio and show an AlertWindow for the soonest upcoming event."""
@@ -146,6 +169,14 @@ class AppController:
         save_settings(self._settings)
         self._main_window.set_event_visible(event_type, self._settings.enabled[event_type])
 
+    def save_window_pos(self, x: int, y: int) -> None:
+        self._settings.window_x = x
+        self._settings.window_y = y
+        save_settings(self._settings)
+
+    def quit(self) -> None:
+        self._quit()
+
     def is_event_enabled(self, event_type: str) -> bool:
         return self._settings.is_enabled(event_type)
 
@@ -153,7 +184,7 @@ class AppController:
         return self._settings.mute_all
 
     def is_game_suppressed(self) -> bool:
-        return self._settings.suppress_when_not_gaming and not self._game_running
+        return _is_game_suppressed(self._settings.suppress_when_not_gaming, self._game_running)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -168,12 +199,15 @@ class AppController:
             self._root.after(0, self.toggle_event, et)
 
         self._tray_icon = create_tray_icon(
-            on_click=lambda icon, item: self._root.after(0, self.show_main_window),
+            on_click=lambda icon, item: self._root.after(0, self.toggle_main_window),
+            on_hide=lambda icon, item: self._root.after(0, self.hide_main_window),
             on_quit=lambda icon, item: self._root.after(0, self._quit),
             on_toggle_mute=lambda icon, item: self._root.after(0, self.toggle_mute),
             on_settings=lambda icon, item: self._root.after(0, self.open_settings),
             on_test_alert=lambda icon, item: self._root.after(0, self.test_alert),
             on_toggle_event=_schedule_toggle,
+            # These lambdas may be called from the pystray thread to build the menu.
+            # Reads of _settings primitives are safe under CPython's GIL.
             is_event_enabled=self.is_event_enabled,
             is_muted=self.is_muted,
         )
@@ -242,28 +276,28 @@ class AppController:
                     )
                     self._update_tray_icon()
 
-        game_suppressed = self._settings.suppress_when_not_gaming and not self._game_running
+        game_suppressed = _is_game_suppressed(
+            self._settings.suppress_when_not_gaming, self._game_running
+        )
         self._main_window.update_status(self._settings.mute_all, game_suppressed)
 
         # Check alerts — skip entirely when suppressed so events aren't marked fired
-        if not self._settings.mute_all:
-            game_suppressed = self._settings.suppress_when_not_gaming and not self._game_running
-            if not game_suppressed:
-                alerts = self._scheduler.check_alerts(schedule, self._settings)
-                for event in alerts:
-                    log.debug(
-                        "Dispatching alert: %s | alert_minutes=%s | enabled=%s"
-                        " | mute_all=%s | freq_hz=%d",
-                        event.event_type,
-                        self._settings.alert_minutes,
-                        self._settings.enabled,
-                        self._settings.mute_all,
-                        self._settings.alert_frequency_hz,
-                    )
-                    if not self._quiet:
-                        play_alert(self._settings.alert_frequency_hz)
-                    AlertWindow(self._root, event, self._settings, self._save_alert_pos).show()
-                    log.info("Alert fired for %s at %s", event.event_type, event.timestamp)
+        if not self._settings.mute_all and not game_suppressed:
+            alerts = self._scheduler.check_alerts(schedule, self._settings)
+            for event in alerts:
+                log.debug(
+                    "Dispatching alert: %s | alert_minutes=%s | enabled=%s"
+                    " | mute_all=%s | freq_hz=%d",
+                    event.event_type,
+                    self._settings.alert_minutes,
+                    self._settings.enabled,
+                    self._settings.mute_all,
+                    self._settings.alert_frequency_hz,
+                )
+                if not self._quiet:
+                    play_alert(self._settings.alert_frequency_hz)
+                AlertWindow(self._root, event, self._settings, self._save_alert_pos).show()
+                log.info("Alert fired for %s at %s", event.event_type, event.timestamp)
 
         self._root.after(TICK_INTERVAL_MS, self._tick)
 
@@ -272,7 +306,7 @@ class AppController:
     # ------------------------------------------------------------------
 
     def _poll_loop(self) -> None:
-        backoff = API_POLL_INTERVAL_SECONDS
+        error_backoff: float = API_BACKOFF_BASE_SECONDS
         while not self._stop_event.is_set():
             try:
                 data = fetch_schedule()
@@ -285,12 +319,14 @@ class AppController:
                     len(parsed.helltide),
                     len(parsed.legion),
                 )
-                backoff = API_POLL_INTERVAL_SECONDS
+                error_backoff = API_BACKOFF_BASE_SECONDS
+                wait: float = API_POLL_INTERVAL_SECONDS
             except Exception:
-                log.warning("API fetch failed; retrying in %ss", backoff)
-                backoff = min(backoff * 2, API_BACKOFF_MAX_SECONDS)
+                log.exception("API fetch failed; retrying in %ss", error_backoff)
+                wait = error_backoff
+                error_backoff = _next_error_backoff(error_backoff, API_BACKOFF_MAX_SECONDS)
 
-            self._stop_event.wait(timeout=backoff)
+            self._stop_event.wait(timeout=wait)
 
     # ------------------------------------------------------------------
     # Helpers

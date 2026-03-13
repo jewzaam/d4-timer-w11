@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, Optional
+from typing import Callable
 
 from .api import EventData, Schedule
 from .config import ALL_EVENT_TYPES, EVENT_HELLTIDE, HELLTIDE_DURATION_SECONDS
@@ -35,7 +35,7 @@ class AlertScheduler:
         """Seconds remaining until the event starts (negative if past)."""
         return event.timestamp - self._now_fn()
 
-    def countdown_str(self, event: Optional[EventData]) -> str:
+    def countdown_str(self, event: EventData | None) -> str:
         """Human-readable HH:MM:SS countdown, or '--:--:--' if no event."""
         if event is None:
             return "--:--:--"
@@ -79,6 +79,9 @@ class AlertScheduler:
         """Return events that should fire an alert right now."""
         alerts: list[EventData] = []
         now = self._now_fn()
+
+        # Prune entries for events that have already started — they can never re-fire
+        self._fired = {key for key in self._fired if key[1] > now}
 
         for event_type in ALL_EVENT_TYPES:
             if not settings.is_enabled(event_type):
