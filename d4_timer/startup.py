@@ -6,12 +6,11 @@ from __future__ import annotations
 import logging
 import sys
 
-import winreg
-
 log = logging.getLogger(__name__)
 
 _REG_RUN_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 _REG_VALUE_NAME = "D4Timer"
+_IS_WINDOWS = sys.platform == "win32"
 
 
 def _startup_cmd() -> str:
@@ -26,7 +25,11 @@ def _startup_cmd() -> str:
 
 
 def set_run_on_startup(enabled: bool) -> None:
-    """Write or remove the startup registry entry under HKCU."""
+    """Write or remove the startup registry entry under HKCU (no-op on non-Windows)."""
+    if not _IS_WINDOWS:
+        return
+    import winreg
+
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _REG_RUN_PATH, 0, winreg.KEY_SET_VALUE)
         try:
@@ -46,7 +49,11 @@ def set_run_on_startup(enabled: bool) -> None:
 
 
 def get_run_on_startup() -> bool:
-    """Return True if the startup registry entry currently exists."""
+    """Return True if the startup registry entry currently exists (False on non-Windows)."""
+    if not _IS_WINDOWS:
+        return False
+    import winreg
+
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _REG_RUN_PATH, 0, winreg.KEY_READ)
         try:
